@@ -1,0 +1,35 @@
+# macOS
+.DS_Store
+
+# Environment / secrets — NEVER commit (Supabase keys, etc.)
+.env
+.env.*
+!.env.example
+
+# gstack tooling state
+.gstack/
+
+# Editor / IDE
+.idea/
+.vscode/
+*.swp
+
+# Flutter / Dart (app — when scaffolded)
+**/.dart_tool/
+**/build/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/.packages
+**/pubspec.lock.bak
+*.iml
+
+# Node / React admin (when scaffolded)
+node_modules/
+dist/
+.next/
+*.log
+
+# Supabase local
+.branches/
+.temp/
+supabase/.temp/
