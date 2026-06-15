@@ -3,9 +3,9 @@
 
 | | |
 |---|---|
-| **Document version** | 1.2 (Draft) |
+| **Document version** | 1.3 (Draft) |
 | **Date** | 2026-06-15 |
-| **Status** | Draft — **MVP scope confirmed by founder Eugene 2026-06-09** (see §9, §1.6). **v1.2 (2026-06-15) folds in the approved onboarding-flow design** (value-first 3-stage staging, body-type set, Monk-10 skin tone, required-to-post trio, teaser guest mode, layered disclosure) per `docs/superpowers/specs/2026-06-09-onboarding-flow-design.md`. Remaining §10 opens before baselining. |
+| **Status** | Draft — **MVP scope confirmed by founder Eugene 2026-06-09** (see §9, §1.6). **v1.2 (2026-06-15)** folded in the onboarding-flow design; **v1.3 (2026-06-15)** folds in the approved **Post-flow design** (single-screen compose, photo carousel 1–8, prefilled aesthetics, lightweight item list, Public/Followers/Private, publish-time author snapshot, post-publish delete + edit-metadata) per `docs/superpowers/specs/2026-06-15-post-flow-design.md`. Remaining §10 opens before baselining. |
 | **Owners** | **Eugene** (Founder; Body-Scan Engine; product direction), **Akash Suryavanshi** (helping build — engineering/product execution) |
 | **Source PRD** | `PRD.docx` |
 | **Design reference** | https://annafashion.lovable.app/ |
@@ -290,20 +290,22 @@ Viele's differentiator is **personalization grounded in the user's actual body a
 
 ### 4.4 Post (Upload & Compose) — the **Post** tab
 
-**Purpose (PRD):** Let users and creators upload outfit content and express personal style. **[CHG] Any user can post at MVP** (Eugene, 2026-06-09) — this is the **Post** tab. Reverses the earlier creator-roster-only / no-UGC plan and makes moderation in-scope (§4.9).
+**Purpose (PRD):** Let users and creators upload outfit content and express personal style. **[CHG] Any user can post at MVP** (Eugene, 2026-06-09) — this is the **Post** tab. Reverses the earlier creator-roster-only / no-UGC plan and makes moderation in-scope (§4.9). **MVP shape (FR-CR.12 → single-screen compose):** gated entry → one scrollable compose screen → immediate publish; full flow in `docs/superpowers/specs/2026-06-15-post-flow-design.md`.
 
 | ID | Pri | Rel | Requirement |
 |---|---|---|---|
-| FR-CR.1 | P0 | MVP | **Upload outfit photos/videos** to a post. |
-| FR-CR.2 | P0 | MVP | **Captions & outfit descriptions.** |
-| FR-CR.3 | P0 | MVP | **Tag clothing items and brands** within a post. |
-| FR-CR.4 | P0 | MVP | **Add aesthetic / style categories** to a post. |
-| FR-CR.5 | P0 | MVP | **Visibility / privacy settings** per post (e.g., public/followers/private). |
+| FR-CR.1 | P0 | MVP | **Upload outfit photos. [CHG]** A post is a **photo carousel of 1–8 images** (camera or library, EIR-3); order = upload order. **No video at MVP** (→ V2). |
+| FR-CR.2 | P0 | MVP | **Captions & outfit descriptions.** Optional free text. |
+| FR-CR.3 | P0 | MVP | **Tag clothing items — lightweight list. [CHG]** Per post, a repeatable list of item rows: **item name** (free text) + **brand** (optional, free text) + **link** (optional URL). **No tap-on-image pins and no brand catalog/search at MVP** (image pins, brand catalog FR-ON.10 → V2). |
+| FR-CR.4 | P0 | MVP | **Add aesthetic / style categories. [CHG]** **≥1 aesthetic required** to publish; chips are **prefilled from the author's profile aesthetics** (editable) — zero-friction. Taxonomy Appendix 11.2; drives feed matching (FR-RC.9). |
+| FR-CR.5 | P0 | MVP | **Per-post visibility. [CHG]** **Public / Followers / Private** (default **Public**). Read scope by RLS: Public = anyone (feed-eligible); Followers = author + confirmed followers (FR-SG.1); Private = author only. Blocks (FR-SG.8) override in the read path. |
 | FR-CR.6 | P1 | V2 | **Drafts** — save and edit posts before publishing. |
 | FR-CR.7 | P1 | V2 | **Image tools** — cropping and basic editing. |
 | FR-CR.8 | P1 | V2 | **Creator analytics & engagement stats** for the author. |
 | FR-CR.9 | P0 | **MVP** | **Content moderation hook. [CHG]** Submitted content is screened (report + admin review; automated screening optional at MVP) per the moderation policy (§4.9, §10). Now MVP-critical because posting is open to all users. |
-| FR-CR.10 | P0 | **MVP** | **Author attribute stamping (NEW).** A post carries the author's public attributes (silhouette, height/weight band unless hidden, coloring) so the feed can match it to similar viewers (FR-RC.9, C-9). |
+| FR-CR.10 | P0 | **MVP** | **Author attribute stamping. [CHG]** A post carries a **publish-time snapshot** of the author's **public** attributes — **silhouette, height, coloring** (skin tone/hair/eye) — so the feed can match it to similar viewers (FR-RC.9, C-9). **Weight is never stamped into the post payload**; the coarse weight **match band is derived server-side only** and never exposed (C-9, DR-4). The snapshot is **immutable** — editing the profile later does not rewrite past posts. |
+| FR-CR.11 | P0 | **MVP** | **Post-publish management (NEW).** Author can **delete** a post (cascades per DR-8) and **edit metadata** (caption, aesthetics, item rows, visibility) after publishing. **No media swap** (→ V2) and **no re-stamp** (the FR-CR.10 snapshot is immutable). Drafts (FR-CR.6) and in-app image editing (FR-CR.7) remain V2. |
+| FR-CR.12 | P0 | **MVP** | **Posting entry gates (NEW).** Before the compose screen opens: require an **account** (guest → Stage-2 creation, FR-ON.16/.18); if profile incomplete, an **inline mini-form** captures height + hair + eye (FR-ON.20); if body-type set = "show me both" with no own silhouette, a **one-tap silhouette pick** (FR-ON.19). On first publish, show a **one-line Community Guidelines + public-data reminder** (FR-ON.17 layer c, NFR-9). EULA was accepted at sign-up (M-5) and is not re-prompted. Posts **publish immediately** (moderation M-1). |
 
 ### 4.5 Catwalk (Showcase) — **V2**
 
@@ -382,10 +384,10 @@ Viele's differentiator is **personalization grounded in the user's actual body a
 | **User** | id, auth identity, name, username (unique), birthday?, gender, region, role, created_at | Backed by Supabase Auth; profile row in `public`. |
 | **BodyProfile** | user_id, height_cm, **weight_kg?** (private), **body_silhouette** (self-reported), sizes, fit_preference · *(V2: scan widths/lengths/circumferences, ratios, body_shape, confidence, `body_vector`)* | **MVP: self-reported.** Height/silhouette/sizes **PUBLIC** (C-9); **weight is owner-only/private — matching-only, never returned in public payloads.** V2 adds scan-derived fields. |
 | **ColorProfile** | user_id, **skin_tone (Monk ordinal 1–10)**, hair_color, eye_color · *(V2: undertone, color_palette)* | **MVP: self-reported & PUBLIC** (C-9). Skin tone stored as a Monk-10 ordinal for proximity matching (FR-ON.8); hair/eye categorical. |
-| **Post** | id, author_id, media[], caption, description, aesthetics[], **author_attr_snapshot** (height, silhouette, coloring — **no weight**; an internal weight-band may be stored for matching but is never exposed), visibility, status, metrics, created_at | UGC; moderated. Author attributes stamped (FR-CR.10). |
-| **Outfit / Look** | post_id, items[] | A post showcases an outfit composed of items. |
-| **ClothingItem** | id, name, brand_id, category, shop_url? | Tagged in posts; shop link is V2. |
-| **Brand** | id, name | Taxonomy; admin-managed. |
+| **Post** | id, author_id, **media[] (1–8 photos)**, caption?, aesthetics[] (≥1), **items[] of {name, brand?, link?}** (lightweight, 0–N), **author_attr_snapshot** (height, silhouette, coloring — **no weight**; weight match-band derived server-side only, never exposed), **visibility (public/followers/private)**, status, metrics, created_at, updated_at | UGC; moderated. Snapshot stamped at publish (FR-CR.10, immutable). Delete cascades; metadata editable (FR-CR.11). RLS per DR-4 / §4.4. |
+| **Outfit / Look** | post_id, items[] | **V2** — structured outfit/item model. **MVP uses the lightweight `Post.items[]` list** above. |
+| **ClothingItem** | id, name, brand_id, category, shop_url? | **V2** structured catalog item; MVP item rows are free-text on the post. |
+| **Brand** | id, name | **V2** taxonomy; admin-managed (MVP brand = free text on item rows). |
 | **Collection** | id, owner_id, name, items[] | Saved-outfit grouping. |
 | **Follow** | follower_id, followee_id, created_at | Social graph edge. |
 | **Like / Save / Share** | user_id, post_id, type, created_at | Interaction events. |
@@ -553,7 +555,7 @@ Viele's differentiator is **personalization grounded in the user's actual body a
 - **Onboarding (self-reported, no camera; value-first 3-stage):** FR-ON.1–5, FR-ON.8, FR-ON.9, FR-ON.12, FR-ON.16 (teaser guest mode), FR-ON.17, **FR-ON.18 (staging), FR-ON.19 (body-type set), FR-ON.20 (required-to-post)**.
   - Captures: height, weight (optional/hideable), **body silhouette**, sizes, fit preference, **skin/hair/eye color** (simple categories), **3–10 aesthetics**; public-data disclosure.
 - **Feed:** FR-HM.1–6.
-- **Post (UGC, any user):** FR-CR.1–5, FR-CR.9, FR-CR.10.
+- **Post (UGC, any user; single-screen compose):** FR-CR.1–5, FR-CR.9, FR-CR.10, **FR-CR.11 (delete + edit-metadata), FR-CR.12 (entry gates)**.
 - **Profile:** FR-PR.1–6, FR-PR.8, FR-PR.10.
 - **Matching:** FR-RC.2, FR-RC.5, FR-RC.7, FR-RC.9; AI-8, AI-11, AI-15, AI-17.
 - **Social/safety:** FR-SG.1–5, FR-SG.8.
@@ -694,4 +696,4 @@ Minimalist · Old Money · Quiet Luxury · Streetwear · Scandinavian · Casual 
 
 ---
 
-*End of SRS v1.2 (Draft). MVP scope confirmed by Eugene 2026-06-09; onboarding-flow design folded in 2026-06-15 (FR-ON.18/.19/.20, Monk-10, teaser guest mode, layered disclosure). Remaining §10 opens before baselining.*
+*End of SRS v1.3 (Draft). MVP scope confirmed by Eugene 2026-06-09; onboarding-flow folded in 2026-06-15 (FR-ON.18/.19/.20, Monk-10, teaser guest mode, layered disclosure); Post-flow folded in 2026-06-15 (FR-CR.1/3/4/5/10 reworked, FR-CR.11/.12 added, single-screen compose, Post entity). Remaining §10 opens before baselining.*

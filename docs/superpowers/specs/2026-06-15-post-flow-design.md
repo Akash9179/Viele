@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Date** | 2026-06-15 |
-| **Status** | Design — approved (Akash, 2026-06-15); pending written-spec review. |
+| **Status** | Design — approved (Akash, 2026-06-15). **§8 deltas folded into `docs/SRS.md` v1.3 on 2026-06-15** (FR-CR.1/3/4/5/10 reworked; FR-CR.11/.12 added; Post entity + §4.4 purpose updated). |
 | **Scope** | MVP Post tab only — the path from tapping **Post** to a published outfit, plus post-publish management. |
 | **Authors** | Akash (decisions), with Claude |
 | **Related** | `docs/SRS.md` v1.2 (FR-CR.1–10, FR-ON.18/.19/.20, FR-RC.9, FR-SG.1/.8, C-9, DR-4/8, NFR-6/9), `docs/moderation.md` (M-1/4/5, §5), `docs/superpowers/specs/2026-06-09-onboarding-flow-design.md`, `docs/design.md` (pending) |

@@ -6,7 +6,7 @@ Living context & decision log for Viele. Complements `docs/SRS.md` (full vision)
 
 ## Snapshot
 - **Product:** personalized fashion discovery app — matches users to outfits, creators, and clothing by body type, proportions, complexion, and aesthetic. (Full vision in `docs/SRS.md`.)
-- **Stage:** documentation + planning. No application code yet. MVP scope locked **and confirmed by Eugene (2026-06-09)** — material changes absorbed (no AI scan, complexion in, UGC posting in). Docs reconciled (**SRS v1.2**, MVP plan, moderation). **Onboarding flow designed + folded into SRS v1.2** (2026-06-15). Next: Post-flow brainstorm → design system.
+- **Stage:** documentation + planning. No application code yet. MVP scope locked **and confirmed by Eugene (2026-06-09)** — material changes absorbed (no AI scan, complexion in, UGC posting in). Docs reconciled (**SRS v1.3**, MVP plan, moderation). **Onboarding + Post flows designed and folded into the SRS** (2026-06-15). Next: Feed-flow brainstorm → design system.
 - **People:** **Eugene** (**founder**; built the body-scan engine; owns product direction), **Akash Suryavanshi** (helping build the app — engineering/product execution).
 
 ## Status — as of 2026-06-09
@@ -22,6 +22,8 @@ Living context & decision log for Viele. Complements `docs/SRS.md` (full vision)
 - [x] **Onboarding flow designed + APPROVED** (Akash, 2026-06-09) → spec at `docs/superpowers/specs/2026-06-09-onboarding-flow-design.md`. Memory: [[viele-onboarding-design]].
 - [x] **Git repo initialized** (2026-06-09) — local, branch `main`, no remote yet; initial commit `38924e3`.
 - [x] **SRS v1.1 → v1.2** (2026-06-15) — folded the approved onboarding-flow §5 deltas into `docs/SRS.md`: new FR-ON.18/.19/.20; amended FR-ON.3/.5/.8/.16/.17, NFR-9, ColorProfile, Appendix 11.3, §9.1.
+- [x] **Post flow designed + APPROVED** (Akash, 2026-06-15) → spec at `docs/superpowers/specs/2026-06-15-post-flow-design.md`. Single-screen compose: gated entry (account / required-to-post mini-form / show-me-both silhouette) → photo carousel 1–8 + prefilled aesthetics + lightweight item list + Public/Followers/Private → publish immediately. Author stamp = publish-time snapshot (weight band server-side only). Post-publish = delete + edit-metadata (no media swap, no re-stamp).
+- [x] **SRS v1.2 → v1.3** (2026-06-15) — folded the Post-flow §8 deltas into `docs/SRS.md`: reworked FR-CR.1/3/4/5/10, added FR-CR.11 (delete + edit-metadata) and FR-CR.12 (entry gates), updated the `Post` data entity + §4.4 purpose + §9.1.
 - [ ] `docs/design.md` (reference: https://annafashion.lovable.app/)
 - [ ] Scaffold Flutter app + React admin
 - [ ] Provision **dedicated, isolated** Supabase project (only with explicit go-ahead)
@@ -84,8 +86,9 @@ Locked via CEO review, **confirmed + amended by Eugene 2026-06-09.** `docs/Viele
 3. ~~MVP **moderation** policy~~ **DONE → `docs/moderation.md`.**
 4. ~~Weight-display default (OQ-18)~~ **DONE** — private/matching-only.
 5. ~~Onboarding spec~~ **APPROVED.** ~~git init~~ **DONE** (`main`, commit `38924e3`).
-6. ~~Fold onboarding §5 deltas into `docs/SRS.md` (v1.1→v1.2)~~ **DONE 2026-06-15.** Added FR-ON.18 (value-first 3-stage staging), FR-ON.19 (body-type set, decoupled from gender), FR-ON.20 (required-to-post = height+hair+eye); amended FR-ON.3/.5/.8 (Monk-10 ordinal)/.16 (guest=teaser, now MVP)/.17 (layered disclosure), NFR-9, ColorProfile data model, Appendix 11.3, §9.1, headers. Spec marked folded-in. **Not yet committed.**
-7. **← RESUME HERE: finalize the Post flow** (recommended next brainstorm — carries moderation + attribute-stamping we've half-specified), then the **Feed** flow.
-8. **`docs/design.md`** — design system from the reference site (`annafashion.lovable.app`).
-9. Scaffold the Flutter app + React admin; provision the isolated Supabase project (on go-ahead). Optional: create GitHub remote (`viele`) when ready.
-10. Pre-launch follow-ups: confirm weight-private with Eugene; EULA/Community Guidelines copy; abuse-contact; CSAM/NCMEC runbook; initial poster/creator seed plan.
+6. ~~Fold onboarding §5 deltas into `docs/SRS.md` (v1.1→v1.2)~~ **DONE 2026-06-15.** Added FR-ON.18 (value-first 3-stage staging), FR-ON.19 (body-type set, decoupled from gender), FR-ON.20 (required-to-post = height+hair+eye); amended FR-ON.3/.5/.8 (Monk-10 ordinal)/.16 (guest=teaser, now MVP)/.17 (layered disclosure), NFR-9, ColorProfile data model, Appendix 11.3, §9.1, headers. Committed `cff1d89`.
+7. ~~Finalize the Post flow~~ **DONE 2026-06-15** — spec `docs/superpowers/specs/2026-06-15-post-flow-design.md` (committed `1fa5e33`), folded into SRS v1.3 (FR-CR.11/.12 added, FR-CR.1/3/4/5/10 reworked, Post entity).
+8. **← RESUME HERE: brainstorm the Feed flow** (FR-RC.9 declared-attribute matching surface — the third leg, with onboarding + post now specced), then the **design system** (`docs/design.md`).
+9. **`docs/design.md`** — design system from the reference site (`annafashion.lovable.app`).
+10. Scaffold the Flutter app + React admin; provision the isolated Supabase project (on go-ahead). Optional: create GitHub remote (`viele`) when ready.
+11. Pre-launch follow-ups: confirm weight-private with Eugene; EULA/Community Guidelines copy; abuse-contact; CSAM/NCMEC runbook; initial poster/creator seed plan.
