@@ -6,6 +6,7 @@ import 'core/widgets/placeholder_screen.dart';
 import 'features/catwalk/presentation/catwalk_screen.dart';
 import 'features/discover/presentation/discover_screen.dart';
 import 'features/feed/presentation/feed_screen.dart';
+import 'features/onboarding/presentation/onboarding_flow.dart';
 import 'features/profile/presentation/profile_screen.dart';
 import 'features/shell/app_shell.dart';
 
@@ -13,8 +14,9 @@ final _rootKey = GlobalKey<NavigatorState>();
 
 final _router = GoRouter(
   navigatorKey: _rootKey,
-  initialLocation: '/home',
+  initialLocation: '/onboarding',
   routes: [
+    GoRoute(path: '/onboarding', builder: (_, _) => const OnboardingFlow()),
     StatefulShellRoute.indexedStack(
       builder: (context, state, shell) => AppShell(navigationShell: shell),
       branches: [
