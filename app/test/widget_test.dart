@@ -9,6 +9,6 @@ void main() {
 
     expect(find.text('Viele'), findsOneWidget);
     expect(find.text('Outfits on people like you'), findsOneWidget);
-    expect(find.text('FOR YOU'), findsOneWidget);
+    expect(find.text('RECOMMENDED'), findsOneWidget);
   });
 }

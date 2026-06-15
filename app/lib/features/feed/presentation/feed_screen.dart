@@ -50,15 +50,8 @@ class _AppHeader extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('FOR YOU',
-                    style: t.labelSmall?.copyWith(letterSpacing: 2.4)),
-                const SizedBox(height: 2),
-                Text('Viele', style: t.displayLarge?.copyWith(fontSize: 30)),
-              ],
-            ),
+            child: Text('Viele',
+                style: t.displayLarge?.copyWith(fontSize: 32)),
           ),
           const _CircleIcon(icon: Icons.search_rounded),
           const SizedBox(width: 10),
@@ -165,7 +158,7 @@ class _RecommendedRow extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(AppSpacing.s20, 16, AppSpacing.s20, 0),
+          padding: const EdgeInsets.fromLTRB(AppSpacing.s20, 14, AppSpacing.s20, 0),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -176,45 +169,50 @@ class _RecommendedRow extends StatelessWidget {
             ],
           ),
         ),
-        SizedBox(
-          height: 142,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.fromLTRB(AppSpacing.s20, 12, AppSpacing.s20, 6),
-            itemCount: mockRecommended.length,
-            separatorBuilder: (_, _) => const SizedBox(width: 15),
-            itemBuilder: (context, i) {
-              final p = mockRecommended[i];
-              return SizedBox(
-                width: 62,
-                child: Column(
-                  children: [
-                    Container(
-                      width: 62,
-                      height: 62,
-                      padding: const EdgeInsets.all(2.5),
-                      decoration: const BoxDecoration(
-                        color: AppColors.ring,
-                        shape: BoxShape.circle,
-                      ),
-                      child: ClipOval(
-                        child: CachedNetworkImage(
-                          imageUrl: p.avatar,
-                          fit: BoxFit.cover,
-                          placeholder: (_, _) =>
-                              const ColoredBox(color: AppColors.sand),
+        // Intrinsic-height horizontal row (sizes to content — no fixed height,
+        // so no overflow and no wasted vertical space before the next section).
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.fromLTRB(AppSpacing.s20, 10, AppSpacing.s20, 0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (var i = 0; i < mockRecommended.length; i++) ...[
+                if (i > 0) const SizedBox(width: 15),
+                SizedBox(
+                  width: 60,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 60,
+                        height: 60,
+                        padding: const EdgeInsets.all(2.5),
+                        decoration: const BoxDecoration(
+                          color: AppColors.ring,
+                          shape: BoxShape.circle,
+                        ),
+                        child: ClipOval(
+                          child: CachedNetworkImage(
+                            imageUrl: mockRecommended[i].avatar,
+                            fit: BoxFit.cover,
+                            placeholder: (_, _) =>
+                                const ColoredBox(color: AppColors.sand),
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(p.name,
-                        style: t.bodyMedium
-                            ?.copyWith(color: AppColors.ink, fontWeight: FontWeight.w600)),
-                    Text('${p.pct}%', style: t.bodySmall),
-                  ],
+                      const SizedBox(height: 7),
+                      Text(mockRecommended[i].name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: t.bodyMedium?.copyWith(
+                              color: AppColors.ink,
+                              fontWeight: FontWeight.w600)),
+                    ],
+                  ),
                 ),
-              );
-            },
+              ],
+            ],
           ),
         ),
       ],
@@ -229,22 +227,23 @@ class _CuratedHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(AppSpacing.s20, 18, AppSpacing.s20, 2),
+      padding: const EdgeInsets.fromLTRB(AppSpacing.s20, 14, AppSpacing.s20, 2),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('CURATED FEED',
-              style: t.labelSmall?.copyWith(letterSpacing: 2.2)),
-          const SizedBox(height: 3),
+          Text('Outfits on people like you', style: t.titleLarge),
+          const SizedBox(height: 4),
           Row(
-            crossAxisAlignment: CrossAxisAlignment.baseline,
-            textBaseline: TextBaseline.alphabetic,
             children: [
-              Expanded(
-                child: Text('Outfits on people like you',
-                    style: t.titleLarge),
+              Container(
+                width: 6,
+                height: 6,
+                margin: const EdgeInsets.only(right: 6),
+                decoration: const BoxDecoration(
+                    color: AppColors.match, shape: BoxShape.circle),
               ),
-              Text('94% match avg', style: t.bodyMedium),
+              Text('94% average match',
+                  style: t.bodyMedium?.copyWith(color: AppColors.ink2)),
             ],
           ),
         ],
