@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Date** | 2026-06-15 |
-| **Status** | Design — approved (Akash, 2026-06-15). **§8 deltas folded into `docs/SRS.md` v1.3 on 2026-06-15** (FR-CR.1/3/4/5/10 reworked; FR-CR.11/.12 added; Post entity + §4.4 purpose updated). |
+| **Status** | Design — approved (Akash, 2026-06-15). **§8 deltas folded into `docs/SRS.md` v1.3 on 2026-06-15** (FR-CR.1/3/4/5/10 reworked; FR-CR.11/.12 added; Post entity + §4.4 purpose updated). **AMENDMENT 2026-06-15 (Eugene, SRS v1.6):** v1 = **all posts public** — the Public/Followers/Private selector (§2, §4) is **deferred to V2**; v1 compose shows a single Public state. Sections §4 (visibility RLS) and §1 first-post copy apply to V2; v1 has no visibility choice. |
 | **Scope** | MVP Post tab only — the path from tapping **Post** to a published outfit, plus post-publish management. |
 | **Authors** | Akash (decisions), with Claude |
 | **Related** | `docs/SRS.md` v1.2 (FR-CR.1–10, FR-ON.18/.19/.20, FR-RC.9, FR-SG.1/.8, C-9, DR-4/8, NFR-6/9), `docs/moderation.md` (M-1/4/5, §5), `docs/superpowers/specs/2026-06-09-onboarding-flow-design.md`, `docs/design.md` (pending) |

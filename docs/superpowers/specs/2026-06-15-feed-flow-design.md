@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Date** | 2026-06-15 |
-| **Status** | Design — approved (Akash, 2026-06-15). **§10 deltas folded into `docs/SRS.md` v1.4 on 2026-06-15** (FR-HM.1/2/3/6/7/8 reworked; FR-HM.16–19 added; FR-RC.4 + AI-17 annotated; §9.1/§9.2 updated). |
+| **Status** | Design — approved (Akash, 2026-06-15). **§10 deltas folded into `docs/SRS.md` v1.4 on 2026-06-15** (FR-HM.1/2/3/6/7/8 reworked; FR-HM.16–19 added; FR-RC.4 + AI-17 annotated; §9.1/§9.2 updated). **AMENDMENT 2026-06-15 (Eugene, SRS v1.6):** v1 = **all posts public**, so §5's visibility access reduces to: all active posts are candidates, read path enforces **Block only** (no public/followers/private branching). Visibility filtering returns in V2. |
 | **Scope** | MVP **Feed** tab (the "Home" screen) — what it serves, how it's ranked, and how it behaves. Outfit-detail view included. |
 | **Authors** | Akash (decisions), with Claude. Visual reference: **Eugene's Home mockup** (2026-06-15). |
 | **Related** | `docs/SRS.md` v1.3 (FR-HM.*, FR-RC.5/7/9, AI-8/11/15/17, FR-SG.1–4/8, C-9, DR-3/4), Post-flow spec (`2026-06-15-post-flow-design.md`), onboarding spec (`2026-06-09-onboarding-flow-design.md`), `docs/design.md` (pending) |

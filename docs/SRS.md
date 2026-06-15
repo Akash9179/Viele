@@ -3,9 +3,9 @@
 
 | | |
 |---|---|
-| **Document version** | 1.5 (Draft) |
+| **Document version** | 1.6 (Draft) |
 | **Date** | 2026-06-15 |
-| **Status** | Draft — **MVP scope confirmed by founder Eugene 2026-06-09** (see §9, §1.6). **v1.2** onboarding-flow; **v1.3** Post-flow; **v1.4** Feed-flow; **v1.5 (2026-06-15)** folds in the approved **data-architecture/schema design** (profiles/profiles_private + posts_private split, RLS matrix, `feed()` SECURITY DEFINER RPC, private `post-media` bucket) per `docs/superpowers/specs/2026-06-15-data-architecture-design.md` — concretization only, no scope change. Remaining §10 opens before baselining. |
+| **Status** | Draft — **MVP scope confirmed by founder Eugene 2026-06-09** (see §9, §1.6). **v1.2** onboarding-flow; **v1.3** Post-flow; **v1.4** Feed-flow; **v1.5** data-architecture/schema. **v1.6 (2026-06-15):** design system locked (`docs/design.md`, `docs/brand.md` — native SF Pro, Eugene's layout, light/warm, real photos) + two product changes — **(a) v1 = all posts public** (Followers/Private → V2; FR-CR.5, FR-HM.19), **(b) expanded hair/eye taxonomy + body-neutral silhouette labels + height wheel** (Appendix 11.3). Remaining §10 opens before baselining. |
 | **Owners** | **Eugene** (Founder; Body-Scan Engine; product direction), **Akash Suryavanshi** (helping build — engineering/product execution) |
 | **Source PRD** | `PRD.docx` |
 | **Design reference** | https://annafashion.lovable.app/ |
@@ -269,7 +269,7 @@ Viele's differentiator is **personalization grounded in the user's actual body a
 | FR-HM.16 | P0 | **MVP** | **Match-% display (NEW).** Each card/detail shows a **0–100% match** from a weighted blend of declared-attribute similarities — silhouette, aesthetics, skin-tone (Monk proximity), height band, weight band (server-side only) — per AI-17. **Weights are config-tunable**; a missing signal redistributes its weight so the % stays honest. **No "why recommended" text** (FR-RC.6 = V2). |
 | FR-HM.17 | P0 | **MVP** | **Feed filter chips (NEW).** Four sort modes over the same score: **For You** (blended + freshness − seen), **Most Similar** (pure score desc), **Your Aesthetic** (aesthetic-overlap first), **Trending** (FR-HM.8). |
 | FR-HM.18 | P0 | **MVP** | **Match-widening ladder (NEW).** When high-match candidates run low, widen in order — exact → relax silhouette to body-type set → widen skin-tone window → aesthetic-only → **floor: recent public posts** — so the feed is **never empty** (implements FR-RC.9 widening; relates FR-RC.7). Always excludes self, blocked (either direction), and best-effort **session-scoped** already-seen (persistent seen-history = V2, DR-5). |
-| FR-HM.19 | P0 | **MVP** | **On-the-fly serving (NEW).** Feed ranking is **SQL attribute-scoring over a recent candidate window, keyset-paginated** per request, enforcing post visibility (Public/Followers/Private) and Block rows in the read path (pull-to-refresh re-runs). **No pgvector / pg_cron precompute at MVP** (that is the V2 ranking upgrade, AI-16; DR-3). |
+| FR-HM.19 | P0 | **MVP** | **On-the-fly serving (NEW).** Feed ranking is **SQL attribute-scoring over a recent candidate window, keyset-paginated** per request. **At v1 all posts are public** (FR-CR.5), so the read path enforces only **Block** rows (no visibility branching); V2 adds visibility filtering. **No pgvector / pg_cron precompute at MVP** (V2 ranking upgrade, AI-16; DR-3). |
 
 ### 4.3 Discover (Swipe-based) — **V2**
 
@@ -302,7 +302,7 @@ Viele's differentiator is **personalization grounded in the user's actual body a
 | FR-CR.2 | P0 | MVP | **Captions & outfit descriptions.** Optional free text. |
 | FR-CR.3 | P0 | MVP | **Tag clothing items — lightweight list. [CHG]** Per post, a repeatable list of item rows: **item name** (free text) + **brand** (optional, free text) + **link** (optional URL). **No tap-on-image pins and no brand catalog/search at MVP** (image pins, brand catalog FR-ON.10 → V2). |
 | FR-CR.4 | P0 | MVP | **Add aesthetic / style categories. [CHG]** **≥1 aesthetic required** to publish; chips are **prefilled from the author's profile aesthetics** (editable) — zero-friction. Taxonomy Appendix 11.2; drives feed matching (FR-RC.9). |
-| FR-CR.5 | P0 | MVP | **Per-post visibility. [CHG]** **Public / Followers / Private** (default **Public**). Read scope by RLS: Public = anyone (feed-eligible); Followers = author + confirmed followers (FR-SG.1); Private = author only. Blocks (FR-SG.8) override in the read path. |
+| FR-CR.5 | P0 | MVP | **Post visibility — all public at v1. [CHG]** Eugene (2026-06-15): **every post is public in v1** — there is **no Followers/Private option** (deferred to V2). Posts are readable by anyone (feed-eligible); **Blocks (FR-SG.8) still override** in the read path. *(V2 reintroduces Public/Followers/Private with follower-scoped RLS.)* This simplifies v1: no follower-scoped read policies, simpler media access, and maximal feed content for cold-start. |
 | FR-CR.6 | P1 | V2 | **Drafts** — save and edit posts before publishing. |
 | FR-CR.7 | P1 | V2 | **Image tools** — cropping and basic editing. |
 | FR-CR.8 | P1 | V2 | **Creator analytics & engagement stats** for the author. |
@@ -649,10 +649,11 @@ Minimalist · Old Money · Quiet Luxury · Streetwear · Scandinavian · Casual 
 
 ### 11.3 Onboarding attribute reference (MVP self-reported)
 - **Body-type set:** women · men · show me both. *(Teaser selector for which silhouette chart to show; decoupled from gender identity — FR-ON.19.)*
-- **Body silhouette (women):** Hourglass, Pear, Rectangle, Apple, Inverted Triangle. **(men):** Athletic, Trapezoid, Triangle, Oval, Rectangle. *(Self-selected from illustrated options; mirrors the V2 scan's `classifyShape` output so the two are interchangeable.)*
+- **Body silhouette (women):** Hourglass, Pear, Rectangle, Apple, Inverted Triangle. **(men):** Athletic, Trapezoid, Triangle, Oval, Rectangle. *(Self-selected from illustrated options; mirrors the V2 scan's `classifyShape` output so the two are interchangeable.)* **[CHG 2026-06-15] User-facing labels are body-neutral** (per `docs/brand.md` inclusivity ethos): Balanced (hourglass) · Fuller hips (pear) · Straight (rectangle) · Fuller middle (apple) · Broad shoulder (inverted triangle) · **Not sure/skip**. Selection is **optional + reassuring**, never clinical. Internal category names unchanged.
 - **Skin tone:** **Monk 10-tone scale** — 10 swatches, single tap, stored as an ordinal **1–10** (lightest→deepest) so matching uses proximity rather than equality. *(Exact swatch hex + accessibility labels = design-time, `docs/design.md`. Undertone Cool/Warm/Neutral = V2.)*
-- **Hair color:** Black, Brown, Blonde, Red, Gray, Other.
-- **Eye color:** Brown, Blue, Green, Hazel, Gray.
+- **Hair color [CHG 2026-06-15, expanded]:** Black · Dark brown · Brown · Light brown · Auburn · Red / ginger · Blonde · Platinum · Gray / silver · Colored / dyed.
+- **Eye color [CHG 2026-06-15, expanded]:** Dark brown · Brown · Hazel · Amber · Blue · Green · Gray.
+- **Height input:** iOS **wheel picker** (ft/in with cm toggle) — see `docs/design.md` §5.
 - **Fit preference:** Slim, Tailored, Relaxed, Oversized, Mixed.
 - **Sizes:** Tops, Bottoms, Dresses, Shoes.
 
@@ -702,4 +703,4 @@ Minimalist · Old Money · Quiet Luxury · Streetwear · Scandinavian · Casual 
 
 ---
 
-*End of SRS v1.4 (Draft). MVP scope confirmed by Eugene 2026-06-09; onboarding-flow folded in 2026-06-15 (FR-ON.18/.19/.20, Monk-10, teaser guest mode, layered disclosure); Post-flow folded in 2026-06-15 (FR-CR.1/3/4/5/10 reworked, FR-CR.11/.12 added, single-screen compose, Post entity); Feed-flow folded in 2026-06-15 (FR-HM.1/2/3/6/7/8 reworked, FR-HM.16–19 added, match-% + chips + widening + on-the-fly serving, 3-tab subset of Eugene's mockups); data-architecture folded in 2026-06-15 (v1.5: profiles/profiles_private + posts_private split, RLS matrix, feed() RPC, private media bucket — concretization, no new FRs). Remaining §10 opens before baselining.*
+*End of SRS v1.4 (Draft). MVP scope confirmed by Eugene 2026-06-09; onboarding-flow folded in 2026-06-15 (FR-ON.18/.19/.20, Monk-10, teaser guest mode, layered disclosure); Post-flow folded in 2026-06-15 (FR-CR.1/3/4/5/10 reworked, FR-CR.11/.12 added, single-screen compose, Post entity); Feed-flow folded in 2026-06-15 (FR-HM.1/2/3/6/7/8 reworked, FR-HM.16–19 added, match-% + chips + widening + on-the-fly serving, 3-tab subset of Eugene's mockups); data-architecture folded in 2026-06-15 (v1.5: profiles/profiles_private + posts_private split, RLS matrix, feed() RPC, private media bucket); v1.6 2026-06-15: design system locked (docs/design.md + docs/brand.md), v1 all-posts-public (FR-CR.5/FR-HM.19, F/P→V2), expanded hair/eye + body-neutral silhouette labels + height wheel (App 11.3). Remaining §10 opens before baselining.*

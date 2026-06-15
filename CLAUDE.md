@@ -6,7 +6,7 @@ Viele is a **personalized fashion discovery mobile app** that matches users to o
 - **Source PRD:** `PRD.docx`
 - **Project memory / decision log:** `docs/memory.md`
 - **Moderation policy:** `docs/moderation.md` (MVP UGC moderation — required because any user can post)
-- **Design system:** `docs/design.md` (pending; reference: https://annafashion.lovable.app/)
+- **Design system:** `docs/design.md` (locked 2026-06-15 — native SF Pro, Eugene's layout, light/warm, real photos) + **brand foundation:** `docs/brand.md`. Mockups: `~/.gstack/projects/Viele/designs/`. Reference: https://annafashion.lovable.app/
 
 ---
 
@@ -48,7 +48,8 @@ Viele/
 ├── docs/
 │   ├── SRS.md           ← requirements (source of truth)
 │   ├── memory.md        ← decision log & living context
-│   └── design.md        ← design system (pending)
+│   ├── design.md        ← design system (locked)
+│   └── brand.md         ← brand foundation
 └── (to scaffold) Flutter app + React admin app
 ```
 
