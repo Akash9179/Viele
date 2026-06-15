@@ -3,9 +3,9 @@
 
 | | |
 |---|---|
-| **Document version** | 1.4 (Draft) |
+| **Document version** | 1.5 (Draft) |
 | **Date** | 2026-06-15 |
-| **Status** | Draft — **MVP scope confirmed by founder Eugene 2026-06-09** (see §9, §1.6). **v1.2** folded in the onboarding-flow design; **v1.3** the Post-flow design; **v1.4 (2026-06-15)** folds in the approved **Feed-flow design** (two-column masonry of match-cards with visible match %, For You/Most Similar/Your Aesthetic/Trending chips, recommended-people row, never-empty widening ladder, on-the-fly SQL serving; mockups = north star, build 3-tab subset, Discover+Catwalk V2) per `docs/superpowers/specs/2026-06-15-feed-flow-design.md`. Remaining §10 opens before baselining. |
+| **Status** | Draft — **MVP scope confirmed by founder Eugene 2026-06-09** (see §9, §1.6). **v1.2** onboarding-flow; **v1.3** Post-flow; **v1.4** Feed-flow; **v1.5 (2026-06-15)** folds in the approved **data-architecture/schema design** (profiles/profiles_private + posts_private split, RLS matrix, `feed()` SECURITY DEFINER RPC, private `post-media` bucket) per `docs/superpowers/specs/2026-06-15-data-architecture-design.md` — concretization only, no scope change. Remaining §10 opens before baselining. |
 | **Owners** | **Eugene** (Founder; Body-Scan Engine; product direction), **Akash Suryavanshi** (helping build — engineering/product execution) |
 | **Source PRD** | `PRD.docx` |
 | **Design reference** | https://annafashion.lovable.app/ |
@@ -199,8 +199,8 @@ Viele's differentiator is **personalization grounded in the user's actual body a
 | Identity & sessions | Auth (email, Google, Apple), JWT |
 | Relational data | Postgres (users, profiles, posts, outfits, items, follows, collections, interactions, moderation) |
 | Authorization | Row Level Security on all exposed tables; admin via `app_metadata` |
-| Matching / recommendations | MVP: declared-attribute scoring (SQL). V2: pgvector (body, style, color, creator embeddings) |
-| Media | Storage buckets + signed URLs for images/videos (post media) |
+| Matching / recommendations | MVP: declared-attribute scoring via a **`SECURITY DEFINER` Postgres RPC** (`feed()` / `recommended_people()`) — reads private weight to compute the band server-side, returns public fields + match% only. V2: pgvector (body, style, color, creator embeddings) |
+| Media | **Single private `post-media` bucket + signed URLs**; Storage read policy enforces post visibility (public/followers/private). Photos only at MVP (FR-CR.1). |
 | Live updates | Realtime (feed, notifications — notifications V2) |
 | Async compute | Edge Functions (matching/ranking, moderation hooks; embedding generation at V2) |
 | Scheduled jobs | pg_cron (trending, leaderboards, feed refresh — V2) |
@@ -383,6 +383,8 @@ Viele's differentiator is **personalization grounded in the user's actual body a
 ## 5. Data Requirements
 
 ### 5.1 Core entities (logical model)
+> **Physical schema (MVP):** see `docs/superpowers/specs/2026-06-15-data-architecture-design.md`. Notably, the logical profile splits into a public **`profiles`** table + an owner-only **`profiles_private`** (weight, birthday), and `Post` gains a sibling **`posts_private`** (publish-time weight band, never exposed) — because Postgres RLS is row-level, not column-level (DR-4).
+
 | Entity | Key attributes | Notes |
 |---|---|---|
 | **User** | id, auth identity, name, username (unique), birthday?, gender, region, role, created_at | Backed by Supabase Auth; profile row in `public`. |
@@ -413,7 +415,7 @@ Viele's differentiator is **personalization grounded in the user's actual body a
 | DR-1 | P0 | MVP | Persist all MVP onboarding attributes against the user record with normalization (units → cm/kg internally). |
 | DR-2 | P0 | V2 | **(V2)** Persist **derived** scan/complexion profiles and vectors; **never persist raw scan video or face photos** server-side (C-3). |
 | DR-3 | P0 | V2 | Store embeddings in **pgvector** for similarity queries. **(V2** — MVP matches via SQL attribute scoring.) |
-| DR-4 | P0 | **MVP** | **Profile-data access model. [CHG]** Self-reported height/silhouette/coloring are **public profile fields** (C-9), readable by others; RLS restricts **writes** to the owner. **`weight_kg` is owner-only** (private) — never included in public profile/post read payloads; used server-side only to derive a non-exposed match band. (The owner-only-sensitive model returns for V2 scan-derived data.) |
+| DR-4 | P0 | **MVP** | **Profile-data access model. [CHG]** Self-reported height/silhouette/coloring are **public profile fields** (C-9), readable by others; RLS restricts **writes** to the owner. **`weight_kg` is owner-only** (private) — never included in public profile/post read payloads; used server-side only to derive a non-exposed match band. **Implemented by table-split** (owner-only `profiles_private` / `posts_private`), since Postgres RLS is row-level and cannot hide a column on a shared-read table. (The owner-only-sensitive model returns for V2 scan-derived data.) |
 | DR-5 | P1 | V2 | Capture **swipe/interaction events** as training signals with retention limits. |
 | DR-6 | P1 | V2 | Maintain **budget range** and **fashion goals** once defined ([OPEN], §10). |
 
@@ -700,4 +702,4 @@ Minimalist · Old Money · Quiet Luxury · Streetwear · Scandinavian · Casual 
 
 ---
 
-*End of SRS v1.4 (Draft). MVP scope confirmed by Eugene 2026-06-09; onboarding-flow folded in 2026-06-15 (FR-ON.18/.19/.20, Monk-10, teaser guest mode, layered disclosure); Post-flow folded in 2026-06-15 (FR-CR.1/3/4/5/10 reworked, FR-CR.11/.12 added, single-screen compose, Post entity); Feed-flow folded in 2026-06-15 (FR-HM.1/2/3/6/7/8 reworked, FR-HM.16–19 added, match-% + chips + widening + on-the-fly serving, 3-tab subset of Eugene's mockups). Remaining §10 opens before baselining.*
+*End of SRS v1.4 (Draft). MVP scope confirmed by Eugene 2026-06-09; onboarding-flow folded in 2026-06-15 (FR-ON.18/.19/.20, Monk-10, teaser guest mode, layered disclosure); Post-flow folded in 2026-06-15 (FR-CR.1/3/4/5/10 reworked, FR-CR.11/.12 added, single-screen compose, Post entity); Feed-flow folded in 2026-06-15 (FR-HM.1/2/3/6/7/8 reworked, FR-HM.16–19 added, match-% + chips + widening + on-the-fly serving, 3-tab subset of Eugene's mockups); data-architecture folded in 2026-06-15 (v1.5: profiles/profiles_private + posts_private split, RLS matrix, feed() RPC, private media bucket — concretization, no new FRs). Remaining §10 opens before baselining.*

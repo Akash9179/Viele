@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Date** | 2026-06-15 |
-| **Status** | Design — approved (Akash, 2026-06-15); pending written-spec review. |
+| **Status** | Design — approved (Akash, 2026-06-15). **§10 concretizations folded into `docs/SRS.md` v1.5 on 2026-06-15** (§5.1 split note, DR-4 table-split clarification, §3.4 feed() RPC + private media bucket). No new FRs. |
 | **Scope** | MVP Postgres schema, RLS, matching RPCs, Storage, admin/moderation, and erasure — the data foundation for the three feature flows. Becomes the **first Supabase migration**. |
 | **Authors** | Akash (decisions), with Claude. |
 | **Related** | `docs/SRS.md` v1.4 (§5 data, §3.4 backend, §7.3 security, C-5/C-8/C-9, NFR-6/7/8, DR-1/4/7/8); flow specs: onboarding (`2026-06-09`), Post (`2026-06-15`), Feed (`2026-06-15`); `CLAUDE.md` hard rules. |
