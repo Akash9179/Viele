@@ -33,16 +33,26 @@ final aestheticImages = <String, String>{
 /// Body-type sets shown in the teaser (decoupled from gender identity).
 enum BodyTypeSet { women, men, both }
 
-/// Body-neutral silhouette labels (internal category in [SilhouetteShape]).
-enum SilhouetteShape { balanced, fullerHips, straight, fullerMiddle, broadShoulder, notSure }
+/// Body silhouettes — standard fashion-industry names (Hourglass, Pear, …) with
+/// a plain, non-prescriptive descriptor (`docs/brand.md` inclusivity ethos).
+enum SilhouetteShape { hourglass, pear, rectangle, apple, invertedTriangle, notSure }
 
 const silhouetteLabels = <SilhouetteShape, String>{
-  SilhouetteShape.balanced: 'Balanced',
-  SilhouetteShape.fullerHips: 'Fuller hips',
-  SilhouetteShape.straight: 'Straight',
-  SilhouetteShape.fullerMiddle: 'Fuller middle',
-  SilhouetteShape.broadShoulder: 'Broad shoulder',
+  SilhouetteShape.hourglass: 'Hourglass',
+  SilhouetteShape.pear: 'Pear',
+  SilhouetteShape.rectangle: 'Rectangle',
+  SilhouetteShape.apple: 'Apple / Round',
+  SilhouetteShape.invertedTriangle: 'Inverted Triangle',
   SilhouetteShape.notSure: 'Not sure',
+};
+
+const silhouetteDescriptors = <SilhouetteShape, String>{
+  SilhouetteShape.hourglass: 'Balanced, defined waist',
+  SilhouetteShape.pear: 'Fuller hips',
+  SilhouetteShape.rectangle: 'Straight up and down',
+  SilhouetteShape.apple: 'Fuller midsection',
+  SilhouetteShape.invertedTriangle: 'Broader shoulders',
+  SilhouetteShape.notSure: "We'll learn as you go",
 };
 
 /// Monk 10-tone skin scale (ordinal 1→10, light→deep).

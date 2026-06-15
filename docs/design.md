@@ -108,8 +108,8 @@ iOS large-title behavior (collapses to inline title on scroll) where the platfor
 **Skin tone — Monk 10-tone (ordinal 1→10, light→deep):**
 `#f6ede4 · #f3e7db · #f7ead0 · #eadaba · #d7bd96 · #a07e56 · #825c43 · #604134 · #3a312a · #292420`
 
-**Body silhouette — body-neutral labels** (internal category in parentheses; women set shown, men set parallel):
-Balanced (hourglass) · Fuller hips (pear) · Straight (rectangle) · Fuller middle (apple) · Broad shoulder (inverted triangle) · **Not sure / skip**. *Selection is optional and reassuring (see brand inclusivity ethos).*
+**Body silhouette — standard fashion-industry names + descriptor** (women set; men set parallel: Rectangle · Triangle · Trapezoid · Oval · Inverted Triangle):
+Hourglass "balanced, defined waist" · Pear "fuller hips" · Rectangle "straight up and down" · Apple / Round "fuller midsection" · Inverted Triangle "broader shoulders" · **Not sure / skip**. Paired with refined line-art croquis (`SilhouetteIcon`). *Optional, reassuring, non-prescriptive (see brand inclusivity ethos).*
 
 **Hair color (expanded):** Black · Dark brown · Brown · Light brown · Auburn · Red / ginger · Blonde · Platinum · Gray / silver · Colored / dyed.
 

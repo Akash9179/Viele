@@ -29,7 +29,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   // Selections (in-memory only).
   BodyTypeSet _bodyType = BodyTypeSet.women;
   final Set<String> _aesthetics = {'Quiet Luxury', 'Off-Duty', 'Dark Academia'};
-  SilhouetteShape? _silhouette = SilhouetteShape.balanced;
+  SilhouetteShape? _silhouette = SilhouetteShape.hourglass;
   int? _skinTone = 3;
   String _hair = 'Brown';
   String _eye = 'Hazel';
@@ -529,33 +529,46 @@ class _SilhouetteGrid extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(AppSpacing.s24, 20, AppSpacing.s24, 0),
       child: GridView.count(
-        crossAxisCount: 3,
+        crossAxisCount: 2,
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
-        mainAxisSpacing: 10,
-        crossAxisSpacing: 10,
-        childAspectRatio: 0.82,
+        mainAxisSpacing: 11,
+        crossAxisSpacing: 11,
+        childAspectRatio: 1.18,
         children: [
           for (final s in SilhouetteShape.values)
             GestureDetector(
               onTap: () => onChanged(s),
               child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
                   color: value == s ? Colors.white : AppColors.paper,
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(16),
                   border: Border.all(
                       color: value == s ? AppColors.ink : AppColors.line,
                       width: 1.5),
                 ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                child: Row(
                   children: [
                     SilhouetteIcon(shape: s, selected: value == s),
-                    const SizedBox(height: 6),
-                    Text(silhouetteLabels[s]!,
-                        textAlign: TextAlign.center,
-                        style: t.bodySmall?.copyWith(
-                            color: AppColors.ink, fontWeight: FontWeight.w600)),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(silhouetteLabels[s]!,
+                              style: t.bodyLarge?.copyWith(
+                                  fontSize: 14.5,
+                                  color: AppColors.ink,
+                                  fontWeight: FontWeight.w700)),
+                          const SizedBox(height: 2),
+                          Text(silhouetteDescriptors[s]!,
+                              style: t.bodySmall?.copyWith(
+                                  color: AppColors.ink2, height: 1.2)),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),

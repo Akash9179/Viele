@@ -85,7 +85,7 @@ Imagery is the product. The brief for all in-app photography (and any marketing)
 Because Viele asks people about their bodies and coloring, how we ask *is* the brand.
 
 - Body shape and skin tone are **always optional and skippable**; matching still works without them.
-- Use **body-neutral, non-judgmental language** (no fruit/clinical labels surfaced to users; "fuller hips," not "pear"). Frame as "what feels closest," with explicit reassurance there's no better or worse.
+- Use the **recognizable industry-standard shape names** (Hourglass, Pear, Rectangle, Apple/Round, Inverted Triangle) — people self-identify with them instantly (research, 2026-06-15) — **paired with a plain descriptor** and framed as "what feels closest." The kindness is in the **framing, not in avoiding the words**: optional, reassuring ("no better or worse"), and **non-prescriptive** — Viele *matches* you to similar people, it never tells you the "right/wrong" way to dress for your shape (which is the actual harm in the old "fruit body shape" advice).
 - **Skin tone** uses the inclusive **Monk 10-tone** scale, matched on closeness ("no wrong answer"), never an exact judged value.
 - **Weight is private** — owner-only, used only to improve matching as a coarse band, never shown to anyone.
 - Be transparent: clearly say what's public (shape, height, coloring, aesthetic, shown with posts) vs private (weight), in plain words, layered through the flow.
