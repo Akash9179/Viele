@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Date** | 2026-06-09 |
-| **Status** | Design — approved in brainstorm; pending written-spec review |
+| **Status** | Design — approved (Akash, 2026-06-09). **§5 deltas folded into `docs/SRS.md` v1.2 on 2026-06-15** (FR-ON.18/.19/.20 added; FR-ON.3/.5/.8/.16/.17, NFR-9, ColorProfile, Appendix 11.3 amended). |
 | **Scope** | MVP onboarding only (the path from app-open to a usable, matched profile). |
 | **Authors** | Akash (decisions), with Claude |
 | **Related** | `docs/SRS.md` v1.1 (FR-ON.*, C-9), `docs/Viele-MVP-Plan.md` §4, `docs/moderation.md` |

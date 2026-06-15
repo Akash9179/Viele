@@ -6,7 +6,7 @@ Living context & decision log for Viele. Complements `docs/SRS.md` (full vision)
 
 ## Snapshot
 - **Product:** personalized fashion discovery app — matches users to outfits, creators, and clothing by body type, proportions, complexion, and aesthetic. (Full vision in `docs/SRS.md`.)
-- **Stage:** documentation + planning. No application code yet. MVP scope locked **and confirmed by Eugene (2026-06-09)** — material changes absorbed (no AI scan, complexion in, UGC posting in). Docs reconciled (SRS v1.1, MVP plan, moderation). **Onboarding flow designed** (spec on disk, pending review). Next: SRS deltas → design system.
+- **Stage:** documentation + planning. No application code yet. MVP scope locked **and confirmed by Eugene (2026-06-09)** — material changes absorbed (no AI scan, complexion in, UGC posting in). Docs reconciled (**SRS v1.2**, MVP plan, moderation). **Onboarding flow designed + folded into SRS v1.2** (2026-06-15). Next: Post-flow brainstorm → design system.
 - **People:** **Eugene** (**founder**; built the body-scan engine; owns product direction), **Akash Suryavanshi** (helping build the app — engineering/product execution).
 
 ## Status — as of 2026-06-09
@@ -19,7 +19,9 @@ Living context & decision log for Viele. Complements `docs/SRS.md` (full vision)
 - [x] **Eugene confirmed the MVP plan (2026-06-09)** — with changes: no AI scan, complexion in, any-user posting in
 - [x] **Reconciled `docs/SRS.md` → v1.1** (2026-06-09): added a **Rel (MVP/V2)** column across all requirement tables, kept P0/P1/P2 priorities, reworded changed reqs ([CHG] tags), added new reqs (FR-ON.17 public-data disclosure, FR-CR.10 author-attr stamping, FR-RC.9/AI-17 declared-attribute matching, FR-SG.8 report/block), and rewrote §9 as the authoritative MVP-vs-V2 map. Resolved log in §10.4.
 - [x] **Updated `docs/Viele-MVP-Plan.md`** to the confirmed scope (2026-06-09): reframed from "for Eugene's confirmation" → "Confirmed"; rewrote flow/features/matching/content/tech for self-reported onboarding, 3 tabs, UGC+moderation, declared-attribute matching, weight-private. **PDF NOT regenerated** (Akash's call) — `docs/Viele-MVP-Plan.pdf` is now stale vs the .md.
-- [x] **Onboarding flow designed** (brainstorming skill, 2026-06-09) → spec at `docs/superpowers/specs/2026-06-09-onboarding-flow-design.md`. **Pending Akash's spec review.** Memory: [[viele-onboarding-design]].
+- [x] **Onboarding flow designed + APPROVED** (Akash, 2026-06-09) → spec at `docs/superpowers/specs/2026-06-09-onboarding-flow-design.md`. Memory: [[viele-onboarding-design]].
+- [x] **Git repo initialized** (2026-06-09) — local, branch `main`, no remote yet; initial commit `38924e3`.
+- [x] **SRS v1.1 → v1.2** (2026-06-15) — folded the approved onboarding-flow §5 deltas into `docs/SRS.md`: new FR-ON.18/.19/.20; amended FR-ON.3/.5/.8/.16/.17, NFR-9, ColorProfile, Appendix 11.3, §9.1.
 - [ ] `docs/design.md` (reference: https://annafashion.lovable.app/)
 - [ ] Scaffold Flutter app + React admin
 - [ ] Provision **dedicated, isolated** Supabase project (only with explicit go-ahead)
@@ -81,9 +83,9 @@ Locked via CEO review, **confirmed + amended by Eugene 2026-06-09.** `docs/Viele
 2. ~~Update `docs/Viele-MVP-Plan.md`~~ **DONE** (text only; PDF intentionally stale).
 3. ~~MVP **moderation** policy~~ **DONE → `docs/moderation.md`.**
 4. ~~Weight-display default (OQ-18)~~ **DONE** — private/matching-only.
-5. **Onboarding spec** — awaiting Akash's review of `docs/superpowers/specs/2026-06-09-onboarding-flow-design.md`. ← we are here
-6. **Fold onboarding §5 deltas into `docs/SRS.md`** (v1.1→v1.2): teaser staging, body-type-set vs gender identity, Monk-10 in FR-ON.8, required-to-post rule, FR-ON.16 guest=teaser, layered FR-ON.17/NFR-9.
-7. **`docs/design.md`** — design system from the reference site (`annafashion.lovable.app`).
-8. Scaffold the Flutter app + React admin; provision the isolated Supabase project (on go-ahead).
-9. Pre-launch follow-ups: confirm weight-private with Eugene; EULA/Community Guidelines copy; abuse-contact; CSAM/NCMEC runbook; initial poster/creator seed plan.
-10. (Housekeeping) project is **not a git repo** — offered `git init` to version-track docs; awaiting go-ahead.
+5. ~~Onboarding spec~~ **APPROVED.** ~~git init~~ **DONE** (`main`, commit `38924e3`).
+6. ~~Fold onboarding §5 deltas into `docs/SRS.md` (v1.1→v1.2)~~ **DONE 2026-06-15.** Added FR-ON.18 (value-first 3-stage staging), FR-ON.19 (body-type set, decoupled from gender), FR-ON.20 (required-to-post = height+hair+eye); amended FR-ON.3/.5/.8 (Monk-10 ordinal)/.16 (guest=teaser, now MVP)/.17 (layered disclosure), NFR-9, ColorProfile data model, Appendix 11.3, §9.1, headers. Spec marked folded-in. **Not yet committed.**
+7. **← RESUME HERE: finalize the Post flow** (recommended next brainstorm — carries moderation + attribute-stamping we've half-specified), then the **Feed** flow.
+8. **`docs/design.md`** — design system from the reference site (`annafashion.lovable.app`).
+9. Scaffold the Flutter app + React admin; provision the isolated Supabase project (on go-ahead). Optional: create GitHub remote (`viele`) when ready.
+10. Pre-launch follow-ups: confirm weight-private with Eugene; EULA/Community Guidelines copy; abuse-contact; CSAM/NCMEC runbook; initial poster/creator seed plan.

@@ -3,9 +3,9 @@
 
 | | |
 |---|---|
-| **Document version** | 1.1 (Draft) |
-| **Date** | 2026-06-09 |
-| **Status** | Draft — **MVP scope confirmed by founder Eugene 2026-06-09** (see §9, §1.6). Remaining §10 opens before baselining. |
+| **Document version** | 1.2 (Draft) |
+| **Date** | 2026-06-15 |
+| **Status** | Draft — **MVP scope confirmed by founder Eugene 2026-06-09** (see §9, §1.6). **v1.2 (2026-06-15) folds in the approved onboarding-flow design** (value-first 3-stage staging, body-type set, Monk-10 skin tone, required-to-post trio, teaser guest mode, layered disclosure) per `docs/superpowers/specs/2026-06-09-onboarding-flow-design.md`. Remaining §10 opens before baselining. |
 | **Owners** | **Eugene** (Founder; Body-Scan Engine; product direction), **Akash Suryavanshi** (helping build — engineering/product execution) |
 | **Source PRD** | `PRD.docx` |
 | **Design reference** | https://annafashion.lovable.app/ |
@@ -220,18 +220,18 @@ Viele's differentiator is **personalization grounded in the user's actual body a
 
 ### 4.1 Onboarding & Account
 
-**Purpose (PRD):** Quickly capture physical attributes, style preferences, and aesthetic interests to personalize from first launch. **MVP capture is entirely self-reported** (no camera).
+**Purpose (PRD):** Quickly capture physical attributes, style preferences, and aesthetic interests to personalize from first launch. **MVP capture is entirely self-reported** (no camera) and follows a **value-first, three-stage flow** (FR-ON.18): an anonymous **Teaser** earns the matched feed in ~1 min, an **Account** is requested at the first save/post, and the **rest of the profile** is filled in gently afterward and never blocks browsing.
 
 | ID | Pri | Rel | Requirement |
 |---|---|---|---|
 | FR-ON.1 | P0 | MVP | **Welcome screen** presenting the value proposition ("Discover fashion that actually fits you.") with primary actions: **Create Account**, **Continue with Google**, **Continue with Apple**. |
 | FR-ON.2 | P0 | MVP | **Account creation & authentication** via Supabase Auth: email/password, Google OAuth, Apple OAuth. Apple sign-in is mandatory on iOS when other social logins are present (C-6). |
-| FR-ON.3 | P0 | MVP | **Basic profile capture:** Name, Username (unique), Birthday (optional), Gender identity, Country/Region. |
+| FR-ON.3 | P0 | MVP | **Basic profile capture. [CHG]** Name, Username (unique) — captured at account creation (Stage 2). Birthday (optional, private), Country/Region (optional), and **Gender identity (optional, Stage 3)** — gender identity is **decoupled from the teaser's body-type set** (FR-ON.19) and never required to browse or post. |
 | FR-ON.4 | P0 | MVP | **Username uniqueness & validation** enforced at capture time. |
-| FR-ON.5 | P0 | MVP | **Self-reported body profile. [CHG]** Height (ft/in or cm), Weight (lb or kg — **optional; matching-only, never displayed**, C-9), **Body silhouette** (self-selected from illustrated options — the MVP body-shape input replacing the scan), clothing sizes (Tops, Bottoms, Dresses, Shoes), and Fit Preference (Slim, Tailored, Relaxed, Oversized, Mixed). Units user-selectable; normalized internally. |
+| FR-ON.5 | P0 | MVP | **Self-reported body profile. [CHG]** Height (ft/in or cm), Weight (lb or kg — **optional; matching-only, never displayed**, C-9), **Body silhouette** (self-selected from illustrated options — the MVP body-shape input replacing the scan; the silhouette set shown is chosen by the body-type set, FR-ON.19), clothing sizes (Tops, Bottoms, Dresses, Shoes), and Fit Preference (Slim, Tailored, Relaxed, Oversized, Mixed). Units user-selectable; normalized internally. **Staging:** silhouette is captured in the Teaser; height/sizes/fit/weight are gentle Stage-3 fields (FR-ON.18) — **height is required only to post** (FR-ON.20). |
 | FR-ON.6 | P0 | **V2** | **Body shape & proportions via AI Body Scan. [CHG]** Deferred to V2 (Eugene, 2026-06-09). When built: user records/uploads a front/side video or photo; on-device analysis returns body shape, proportions, ratios, silhouette (Algorithm: Appendix 11.4). **At MVP, replaced by self-reported silhouette in FR-ON.5.** |
 | FR-ON.7 | P0 | **V2** | **Editable scan results** — review/edit AI-derived body results before saving. (V2, with FR-ON.6.) |
-| FR-ON.8 | P1 | **MVP** | **Self-reported complexion & coloring. [CHG]** User selects **skin color**, **hair color**, and **eye color** from simple category lists (Appendix 11.3) — kept simple per Eugene. Public profile fields (C-9), used in matching. (AI auto-detection of these → V2, AI-5/6.) |
+| FR-ON.8 | P1 | **MVP** | **Self-reported complexion & coloring. [CHG]** User selects **skin tone** from the **Monk 10-tone scale** (single tap; stored as an ordinal 1–10 so matching can use proximity, not just equality), plus **hair color** and **eye color** from simple category lists (Appendix 11.3). Skin tone is a Teaser field; hair/eye are Stage-3 fields **required to post** (FR-ON.20). Public profile fields (C-9), used in matching. (AI auto-detection of these → V2, AI-5/6.) |
 | FR-ON.9 | P0 | MVP | **Style preferences (aesthetics):** user selects **3–10** aesthetics from the taxonomy (Appendix 11.2). |
 | FR-ON.10 | P1 | V2 | **Favorite brands:** multi-select from a brand list, with search. |
 | FR-ON.11 | P0 | **V2** | **Camera consent & disclosure. [CHG]** Before any camera capture (V2 scan/complexion), present explicit consent describing on-device processing, that raw imagery is not uploaded, and that the scan is an estimate / not a medical device (A-3, C-3). **MVP has no camera capture for profiling**; see FR-ON.17 for the MVP public-data disclosure. |
@@ -239,8 +239,11 @@ Viele's differentiator is **personalization grounded in the user's actual body a
 | FR-ON.13 | P1 | V2 | **Budget range capture.** [OPEN] — needs a defined step/values (see §10). |
 | FR-ON.14 | P1 | V2 | **Fashion goals capture.** [OPEN] — needs a defined step/values (see §10). |
 | FR-ON.15 | P1 | V2 | **PRD onboarding gap — Step 3 & Step 8.** Intended content undefined; resolve later (see §10). |
-| FR-ON.16 | P0 | V2 | **Guest mode** — browse and (V2) run the body scan before account creation, persisting a guest profile locally and migrating on sign-up. (At MVP, personalization/posting require an account.) |
-| FR-ON.17 | P0 | **MVP** | **Public-data disclosure (NEW). [CHG]** At onboarding, clearly disclose that body silhouette, height, and coloring are **public** and shown alongside the user's posts, and that **weight is private** — optional, used only to improve matching, and never shown to others (C-9). |
+| FR-ON.16 | P0 | **MVP** | **Guest mode (anonymous teaser). [CHG]** At MVP, guest mode is the **anonymous Teaser** (FR-ON.18): browse the matched feed and supply the teaser inputs (body-type set, aesthetics, silhouette, skin tone) **with no account**. Teaser answers persist in local storage and **migrate into the profile on sign-up**; if the user bounces without an account, the teaser data is discarded. An account is required only to **save or post** (Stage 2). *(V2 widens this to running the body scan as a guest.)* |
+| FR-ON.17 | P0 | **MVP** | **Public-data disclosure — layered (NEW). [CHG]** Disclose that body silhouette, height, and coloring are **public** and shown alongside the user's posts, and that **weight is private** — optional, matching-only, never shown to others (C-9). Disclosure is **layered**: (a) one concise line at sign-up; (b) per-field **Public/Private** tags in Profile edit; (c) a one-line reminder the **first time the user posts** (NFR-9). |
+| FR-ON.18 | P0 | **MVP** | **Value-first three-stage onboarding (NEW).** Onboarding is staged: **Stage 1 — Teaser** (anonymous, no account): body-type set (FR-ON.19), aesthetics (FR-ON.9), body silhouette, and skin tone (FR-ON.8) → **matched feed** (the wow). **Stage 2 — Account**: requested at the **first save or post** (FR-ON.2/.3); teaser answers migrate in (FR-ON.16). **Stage 3 — rest of profile** (FR-ON.5/.8 remainder): gentle, always resumable from Profile, and **never blocks browsing**. |
+| FR-ON.19 | P0 | **MVP** | **Body-type set (NEW).** The Teaser asks which silhouette chart to show — **women / men / show me both** — solely to select the silhouette options (Appendix 11.3). It is **decoupled from gender identity** (FR-ON.3). For "show me both," the feed draws from both silhouette sets; before the user's **first post**, prompt for a single own-silhouette to stamp their posts (FR-CR.10). |
+| FR-ON.20 | P0 | **MVP** | **Required-to-post profile (NEW).** Consumers browse and save with **no required profile fields beyond the Teaser**. **Posting requires height + hair + eye** — which, combined with the Teaser's silhouette + skin tone, form a complete author stamp for matching (FR-CR.10). Tapping Post with an incomplete profile triggers an **inline 3-field mini-form** (height + hair + eye), then publishes — an intercept, not a wall. Sizes, fit, and weight remain optional. |
 
 ### 4.2 Feed (Personalized Home)
 
@@ -378,7 +381,7 @@ Viele's differentiator is **personalization grounded in the user's actual body a
 |---|---|---|
 | **User** | id, auth identity, name, username (unique), birthday?, gender, region, role, created_at | Backed by Supabase Auth; profile row in `public`. |
 | **BodyProfile** | user_id, height_cm, **weight_kg?** (private), **body_silhouette** (self-reported), sizes, fit_preference · *(V2: scan widths/lengths/circumferences, ratios, body_shape, confidence, `body_vector`)* | **MVP: self-reported.** Height/silhouette/sizes **PUBLIC** (C-9); **weight is owner-only/private — matching-only, never returned in public payloads.** V2 adds scan-derived fields. |
-| **ColorProfile** | user_id, skin_color, hair_color, eye_color · *(V2: undertone, color_palette)* | **MVP: self-reported categorical & PUBLIC** (C-9). |
+| **ColorProfile** | user_id, **skin_tone (Monk ordinal 1–10)**, hair_color, eye_color · *(V2: undertone, color_palette)* | **MVP: self-reported & PUBLIC** (C-9). Skin tone stored as a Monk-10 ordinal for proximity matching (FR-ON.8); hair/eye categorical. |
 | **Post** | id, author_id, media[], caption, description, aesthetics[], **author_attr_snapshot** (height, silhouette, coloring — **no weight**; an internal weight-band may be stored for matching but is never exposed), visibility, status, metrics, created_at | UGC; moderated. Author attributes stamped (FR-CR.10). |
 | **Outfit / Look** | post_id, items[] | A post showcases an outfit composed of items. |
 | **ClothingItem** | id, name, brand_id, category, shop_url? | Tagged in posts; shop link is V2. |
@@ -470,7 +473,7 @@ Viele's differentiator is **personalization grounded in the user's actual body a
 | NFR-6 | P0 | MVP | **RLS on every table** in exposed schemas; ownership predicates (`auth.uid() = user_id`) with `TO authenticated` for writes; public profile reads per C-9; admin authorization via `app_metadata`. UPDATE policies need both `USING` and `WITH CHECK`. |
 | NFR-7 | P0 | MVP | **Key hygiene** — publishable keys only in clients; `service_role`/secret keys only in Edge Functions/server. |
 | NFR-8 | P0 | MVP | **Encryption** in transit (TLS) and at rest (Supabase-managed). |
-| NFR-9 | P0 | **MVP** | **Consent & disclosure. [CHG]** MVP: disclose that height/silhouette/coloring are **public** and shown with posts, and that **weight is private** (matching-only, never displayed) (FR-ON.17, C-9). V2: explicit camera-capture consent + "estimate, not a medical device." |
+| NFR-9 | P0 | **MVP** | **Consent & disclosure. [CHG]** MVP: disclose that height/silhouette/coloring are **public** and shown with posts, and that **weight is private** (matching-only, never displayed) — delivered as **layered disclosure**: a sign-up line, per-field Public/Private tags in Profile edit, and a first-post reminder (FR-ON.17, C-9). V2: explicit camera-capture consent + "estimate, not a medical device." |
 | NFR-10 | P0 | MVP | **Data subject rights** — export and full deletion (GDPR/CCPA-aligned), cascading to derived data (DR-8). |
 | NFR-11 | P1 | V2 | **Minors handling / age gating** — define minimum age and minor-data policy. [OPEN] |
 | NFR-12 | P1 | **MVP** | **Audit logging for admin/moderation actions. [CHG]** Log admin actions on user data and content. (Pulled to MVP — open UGC + moderation make this baseline.) |
@@ -547,7 +550,7 @@ Viele's differentiator is **personalization grounded in the user's actual body a
 ### 9.1 MVP — first release (Eugene-confirmed)
 **Shape:** three tabs — **Feed, Post, Profile** — self-reported onboarding, open to everyone, any user can post, declared-attribute matching.
 
-- **Onboarding (self-reported, no camera):** FR-ON.1–5, FR-ON.8, FR-ON.9, FR-ON.12, FR-ON.17.
+- **Onboarding (self-reported, no camera; value-first 3-stage):** FR-ON.1–5, FR-ON.8, FR-ON.9, FR-ON.12, FR-ON.16 (teaser guest mode), FR-ON.17, **FR-ON.18 (staging), FR-ON.19 (body-type set), FR-ON.20 (required-to-post)**.
   - Captures: height, weight (optional/hideable), **body silhouette**, sizes, fit preference, **skin/hair/eye color** (simple categories), **3–10 aesthetics**; public-data disclosure.
 - **Feed:** FR-HM.1–6.
 - **Post (UGC, any user):** FR-CR.1–5, FR-CR.9, FR-CR.10.
@@ -637,8 +640,9 @@ A-1 height accuracy (V2); A-2 device capability (V2); A-3 not a medical device (
 Minimalist · Old Money · Quiet Luxury · Streetwear · Scandinavian · Casual · Vintage · Dark Academia · Coastal · Business Casual · Y2K · Techwear · Athleisure · Boho · Cottagecore · Contemporary Luxury · Preppy · Smart Casual · Edgy. *(Admin-managed; users select 3–10.)*
 
 ### 11.3 Onboarding attribute reference (MVP self-reported)
+- **Body-type set:** women · men · show me both. *(Teaser selector for which silhouette chart to show; decoupled from gender identity — FR-ON.19.)*
 - **Body silhouette (women):** Hourglass, Pear, Rectangle, Apple, Inverted Triangle. **(men):** Athletic, Trapezoid, Triangle, Oval, Rectangle. *(Self-selected from illustrated options; mirrors the V2 scan's `classifyShape` output so the two are interchangeable.)*
-- **Skin color:** simple categories (e.g., Fair, Light, Medium, Olive, Tan, Deep). *(Undertone Cool/Warm/Neutral = V2.)*
+- **Skin tone:** **Monk 10-tone scale** — 10 swatches, single tap, stored as an ordinal **1–10** (lightest→deepest) so matching uses proximity rather than equality. *(Exact swatch hex + accessibility labels = design-time, `docs/design.md`. Undertone Cool/Warm/Neutral = V2.)*
 - **Hair color:** Black, Brown, Blonde, Red, Gray, Other.
 - **Eye color:** Brown, Blue, Green, Hazel, Gray.
 - **Fit preference:** Slim, Tailored, Relaxed, Oversized, Mixed.
@@ -690,4 +694,4 @@ Minimalist · Old Money · Quiet Luxury · Streetwear · Scandinavian · Casual 
 
 ---
 
-*End of SRS v1.1 (Draft). MVP scope confirmed by Eugene 2026-06-09; remaining §10 opens (esp. OQ-7 moderation, OQ-18 weight display) before baselining.*
+*End of SRS v1.2 (Draft). MVP scope confirmed by Eugene 2026-06-09; onboarding-flow design folded in 2026-06-15 (FR-ON.18/.19/.20, Monk-10, teaser guest mode, layered disclosure). Remaining §10 opens before baselining.*
