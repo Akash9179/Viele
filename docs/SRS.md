@@ -3,9 +3,9 @@
 
 | | |
 |---|---|
-| **Document version** | 1.3 (Draft) |
+| **Document version** | 1.4 (Draft) |
 | **Date** | 2026-06-15 |
-| **Status** | Draft — **MVP scope confirmed by founder Eugene 2026-06-09** (see §9, §1.6). **v1.2 (2026-06-15)** folded in the onboarding-flow design; **v1.3 (2026-06-15)** folds in the approved **Post-flow design** (single-screen compose, photo carousel 1–8, prefilled aesthetics, lightweight item list, Public/Followers/Private, publish-time author snapshot, post-publish delete + edit-metadata) per `docs/superpowers/specs/2026-06-15-post-flow-design.md`. Remaining §10 opens before baselining. |
+| **Status** | Draft — **MVP scope confirmed by founder Eugene 2026-06-09** (see §9, §1.6). **v1.2** folded in the onboarding-flow design; **v1.3** the Post-flow design; **v1.4 (2026-06-15)** folds in the approved **Feed-flow design** (two-column masonry of match-cards with visible match %, For You/Most Similar/Your Aesthetic/Trending chips, recommended-people row, never-empty widening ladder, on-the-fly SQL serving; mockups = north star, build 3-tab subset, Discover+Catwalk V2) per `docs/superpowers/specs/2026-06-15-feed-flow-design.md`. Remaining §10 opens before baselining. |
 | **Owners** | **Eugene** (Founder; Body-Scan Engine; product direction), **Akash Suryavanshi** (helping build — engineering/product execution) |
 | **Source PRD** | `PRD.docx` |
 | **Design reference** | https://annafashion.lovable.app/ |
@@ -247,18 +247,18 @@ Viele's differentiator is **personalization grounded in the user's actual body a
 
 ### 4.2 Feed (Personalized Home)
 
-**Purpose (PRD):** Browse a personalized editorial-style feed of outfit content from people with similar body types, proportions, sizing, coloring, and aesthetics. **MVP tab name: "Feed."**
+**Purpose (PRD):** Browse a personalized feed of outfit content from people with similar body types, proportions, sizing, coloring, and aesthetics. **MVP tab name: "Feed" (the "Home" screen).** **MVP shape (FR-HM.16–19 → two-column masonry of match-cards with a visible match %):** filter chips + recommended-people row + curated masonry feed; full flow in `docs/superpowers/specs/2026-06-15-feed-flow-design.md`. Visual reference: Eugene's Home mockup (2026-06-15).
 
 | ID | Pri | Rel | Requirement |
 |---|---|---|---|
-| FR-HM.1 | P0 | MVP | **Personalized fashion feed** driven by the user's self-reported profile (silhouette, sizing, coloring, aesthetics) and behavior. |
-| FR-HM.2 | P0 | MVP | **Outfit posts** rendered editorial-style with rich media (photos, videos, carousels). |
+| FR-HM.1 | P0 | MVP | **Personalized fashion feed** driven by the user's self-reported profile (silhouette, sizing, coloring, aesthetics) and behavior. **MVP renders a two-column masonry of match-cards** (FR-HM.16). |
+| FR-HM.2 | P0 | MVP | **Outfit posts. [CHG]** Rendered as a **photo carousel** (reconciled with FR-CR.1 — **no video at MVP**); card shows the first photo, detail shows the full carousel. |
 | FR-HM.3 | P0 | MVP | **Similar-body & aesthetic matching. [CHG]** Feed prioritizes posts whose author attributes match the viewer's declared attributes (see §8, FR-RC.9). |
 | FR-HM.4 | P0 | MVP | **Save outfits to collections** from the feed. |
 | FR-HM.5 | P0 | MVP | **Follow creators/users** from the feed. |
-| FR-HM.6 | P0 | MVP | **Outfit detail view** with tagged clothing items and descriptions. |
-| FR-HM.7 | P1 | V2 | **Recommended creators** module. |
-| FR-HM.8 | P1 | V2 | **Trending looks within the user's aesthetic.** |
+| FR-HM.6 | P0 | MVP | **Outfit detail view** with tagged clothing items (name · brand? · link?) and descriptions; full carousel; like/save/follow/share; overflow → report/block. |
+| FR-HM.7 | P1 | **MVP** | **Recommended-people row. [CHG] (partial-MVP)** A horizontal row of **authors most similar to the viewer** (the FR-RC.9 score applied profile-to-profile), each with avatar + match %; tap → profile, follow inline, "See all" → ranked list. Richer creator-similarity (FR-RC.4) stays V2. |
+| FR-HM.8 | P1 | **MVP** | **Trending chip. [CHG] (light-MVP)** A feed sort mode by recent engagement (likes, trailing window), **relevance-gated to the viewer's body-type set / aesthetics** ("trending among people like you"). Richer trending stays V2. |
 | FR-HM.9 | P1 | V2 | **Recently viewed outfits.** |
 | FR-HM.10 | P1 | V2 | **Suggested complementary outfits/items.** |
 | FR-HM.11 | P1 | V2 | **"Inspired by your saves" recommendations.** |
@@ -266,6 +266,10 @@ Viele's differentiator is **personalization grounded in the user's actual body a
 | FR-HM.13 | P1 | V2 | **Curated seasonal / trend collections.** |
 | FR-HM.14 | P1 | V2 | **Feed refresh based on engagement behavior** (re-ranking as signals accumulate). |
 | FR-HM.15 | P2 | V2 | **Shop / link tagged products** (monetization-adjacent; see §10). |
+| FR-HM.16 | P0 | **MVP** | **Match-% display (NEW).** Each card/detail shows a **0–100% match** from a weighted blend of declared-attribute similarities — silhouette, aesthetics, skin-tone (Monk proximity), height band, weight band (server-side only) — per AI-17. **Weights are config-tunable**; a missing signal redistributes its weight so the % stays honest. **No "why recommended" text** (FR-RC.6 = V2). |
+| FR-HM.17 | P0 | **MVP** | **Feed filter chips (NEW).** Four sort modes over the same score: **For You** (blended + freshness − seen), **Most Similar** (pure score desc), **Your Aesthetic** (aesthetic-overlap first), **Trending** (FR-HM.8). |
+| FR-HM.18 | P0 | **MVP** | **Match-widening ladder (NEW).** When high-match candidates run low, widen in order — exact → relax silhouette to body-type set → widen skin-tone window → aesthetic-only → **floor: recent public posts** — so the feed is **never empty** (implements FR-RC.9 widening; relates FR-RC.7). Always excludes self, blocked (either direction), and best-effort **session-scoped** already-seen (persistent seen-history = V2, DR-5). |
+| FR-HM.19 | P0 | **MVP** | **On-the-fly serving (NEW).** Feed ranking is **SQL attribute-scoring over a recent candidate window, keyset-paginated** per request, enforcing post visibility (Public/Followers/Private) and Block rows in the read path (pull-to-refresh re-runs). **No pgvector / pg_cron precompute at MVP** (that is the V2 ranking upgrade, AI-16; DR-3). |
 
 ### 4.3 Discover (Swipe-based) — **V2**
 
@@ -344,7 +348,7 @@ Viele's differentiator is **personalization grounded in the user's actual body a
 | FR-RC.1 | P0 | **V2** | **`body_vector` from the body scan. [CHG]** Generate/maintain a body vector for similarity matching (V2, with the scan). |
 | FR-RC.2 | P0 | MVP | Generate/maintain a **style preference signal** seeded from selected aesthetics (cold-start) and refined by behavior. |
 | FR-RC.3 | P1 | V2 | Generate a **color palette profile** from complexion (derived palette; V2). MVP uses categorical coloring directly. |
-| FR-RC.4 | P1 | V2 | Compute **creator similarity scores** for "creators who resemble you." |
+| FR-RC.4 | P1 | V2 | Compute **creator similarity scores** for "creators who resemble you." *(MVP ships a **lightweight** version — the recommended-people row, FR-HM.7 — reusing the FR-RC.9 attribute score profile-to-profile; richer creator-similarity stays V2.)* |
 | FR-RC.5 | P0 | **MVP** | **Feed ranking. [CHG]** Rank the Feed using **declared-attribute similarity** (silhouette, height/weight band, coloring, aesthetics) + behavioral signals. (V2 upgrades this to vector-based hybrid ranking; see §8.) |
 | FR-RC.6 | P1 | V2 | Provide **"why recommended"** explanations. |
 | FR-RC.7 | P1 | MVP | **Cold-start** strategy for new users (profile-seeded) and new content (author-attribute/metadata-seeded). |
@@ -531,7 +535,7 @@ Viele's differentiator is **personalization grounded in the user's actual body a
 | AI-8 | P0 | MVP | **Style preference signal**: cold-start from selected aesthetics, refined by behavior. (MVP: simple attribute/tag scoring; vectorized at V2.) |
 | AI-9 | P1 | V2 | **Color palette** representation usable in ranking. |
 | AI-10 | P1 | V2 | **Creator similarity scores.** |
-| AI-17 | P0 | **MVP** | **Declared-attribute scoring (NEW).** Score post↔viewer match from self-reported attributes (silhouette, height/weight band, coloring, aesthetics) with weighting + match-widening (implements FR-RC.9). |
+| AI-17 | P0 | **MVP** | **Declared-attribute scoring (NEW).** Score post↔viewer match from self-reported attributes (silhouette, height/weight band, coloring, aesthetics) with weighting + match-widening (implements FR-RC.9). **Normalized to a 0–100% match** for display (FR-HM.16): weighted sum of per-signal similarities (e.g., silhouette 0.30, aesthetics 0.30, skin-tone 0.15, height 0.15, weight band 0.10) with **config-tunable weights** and **missing-signal redistribution**. |
 
 ### 8.4 Recommendation engine
 | ID | Pri | Rel | Requirement |
@@ -550,11 +554,11 @@ Viele's differentiator is **personalization grounded in the user's actual body a
 > **Authoritative MVP-vs-V2 map** (Eugene-confirmed 2026-06-09). Where a requirement's `Rel` marker (§4–§8) and this section disagree, **this section wins** and the table should be corrected.
 
 ### 9.1 MVP — first release (Eugene-confirmed)
-**Shape:** three tabs — **Feed, Post, Profile** — self-reported onboarding, open to everyone, any user can post, declared-attribute matching.
+**Shape:** three tabs — **Feed, Post, Profile** — self-reported onboarding, open to everyone, any user can post, declared-attribute matching. *(Eugene's mockups are the visual north star but depict the full 5-tab vision; MVP builds the **3-tab subset** — Discover-swipe + Catwalk + the 5-tab nav arrive at V2. Decided 2026-06-15; worth a one-line Eugene confirm.)*
 
 - **Onboarding (self-reported, no camera; value-first 3-stage):** FR-ON.1–5, FR-ON.8, FR-ON.9, FR-ON.12, FR-ON.16 (teaser guest mode), FR-ON.17, **FR-ON.18 (staging), FR-ON.19 (body-type set), FR-ON.20 (required-to-post)**.
   - Captures: height, weight (optional/hideable), **body silhouette**, sizes, fit preference, **skin/hair/eye color** (simple categories), **3–10 aesthetics**; public-data disclosure.
-- **Feed:** FR-HM.1–6.
+- **Feed (masonry match-cards, Home mockup):** FR-HM.1–8, **FR-HM.16 (match-% display), FR-HM.17 (filter chips), FR-HM.18 (widening ladder), FR-HM.19 (on-the-fly serving)**.
 - **Post (UGC, any user; single-screen compose):** FR-CR.1–5, FR-CR.9, FR-CR.10, **FR-CR.11 (delete + edit-metadata), FR-CR.12 (entry gates)**.
 - **Profile:** FR-PR.1–6, FR-PR.8, FR-PR.10.
 - **Matching:** FR-RC.2, FR-RC.5, FR-RC.7, FR-RC.9; AI-8, AI-11, AI-15, AI-17.
@@ -570,7 +574,7 @@ Viele's differentiator is **personalization grounded in the user's actual body a
 - **Vector matching:** FR-RC.1, FR-RC.3, FR-RC.4; AI-7, AI-9, AI-10, AI-16; DR-3 (vector use).
 - **Discover (swipe):** all FR-DS.*.
 - **Catwalk:** all FR-CW.*.
-- **Feed/Profile depth:** FR-HM.7–14, FR-PR.7, FR-PR.9; FR-RC.6, FR-RC.8.
+- **Feed/Profile depth:** FR-HM.9–14 (FR-HM.7/.8 now partial-MVP), FR-PR.7, FR-PR.9; FR-RC.6, FR-RC.8.
 - **Post depth:** FR-CR.6–8.
 - **Social:** FR-SG.6 (notifications), FR-SG.7 (comments).
 - **Admin/analytics:** FR-AD.5; budget/goals FR-ON.13/14, DR-6.
@@ -696,4 +700,4 @@ Minimalist · Old Money · Quiet Luxury · Streetwear · Scandinavian · Casual 
 
 ---
 
-*End of SRS v1.3 (Draft). MVP scope confirmed by Eugene 2026-06-09; onboarding-flow folded in 2026-06-15 (FR-ON.18/.19/.20, Monk-10, teaser guest mode, layered disclosure); Post-flow folded in 2026-06-15 (FR-CR.1/3/4/5/10 reworked, FR-CR.11/.12 added, single-screen compose, Post entity). Remaining §10 opens before baselining.*
+*End of SRS v1.4 (Draft). MVP scope confirmed by Eugene 2026-06-09; onboarding-flow folded in 2026-06-15 (FR-ON.18/.19/.20, Monk-10, teaser guest mode, layered disclosure); Post-flow folded in 2026-06-15 (FR-CR.1/3/4/5/10 reworked, FR-CR.11/.12 added, single-screen compose, Post entity); Feed-flow folded in 2026-06-15 (FR-HM.1/2/3/6/7/8 reworked, FR-HM.16–19 added, match-% + chips + widening + on-the-fly serving, 3-tab subset of Eugene's mockups). Remaining §10 opens before baselining.*
