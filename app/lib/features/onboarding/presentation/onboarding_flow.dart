@@ -872,6 +872,10 @@ class _Account extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
+    final imgs = [for (final p in mockFeed) p.imageUrl];
+    final col0 = [imgs[0], imgs[3], imgs[1]];
+    final col1 = [imgs[4], imgs[2], imgs[5]];
+    final col2 = [imgs[2], imgs[0], imgs[4]];
     Widget btn(String label, Color bg, Color fg, {IconData? icon, Border? border}) {
       return GestureDetector(
         onTap: onContinue,
@@ -912,34 +916,34 @@ class _Account extends StatelessWidget {
                 style: t.bodyLarge?.copyWith(color: AppColors.ink2)),
             const SizedBox(height: 18),
             Expanded(
-              child: ClipRect(
-                child: ShaderMask(
-                  shaderCallback: (rect) => const LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Colors.black, Colors.black, Colors.transparent],
-                    stops: [0.0, 0.74, 1.0],
-                  ).createShader(rect),
-                  blendMode: BlendMode.dstIn,
-                  child: GridView.count(
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisCount: 3,
-                    mainAxisSpacing: 8,
-                    crossAxisSpacing: 8,
-                    childAspectRatio: 0.78,
-                    children: [
-                      for (final p in mockFeed)
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(13),
-                          child: CachedNetworkImage(
-                            imageUrl: p.imageUrl,
-                            fit: BoxFit.cover,
-                            placeholder: (_, _) =>
-                                const ColoredBox(color: AppColors.sand),
-                          ),
-                        ),
-                    ],
-                  ),
+              child: ShaderMask(
+                shaderCallback: (rect) => const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    Colors.black,
+                    Colors.black,
+                    Colors.transparent
+                  ],
+                  stops: [0.0, 0.13, 0.86, 1.0],
+                ).createShader(rect),
+                blendMode: BlendMode.dstIn,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                        child: _MarqueeColumn(
+                            images: col0, down: true, seconds: 24, itemHeight: 132)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                        child: _MarqueeColumn(
+                            images: col1, down: false, seconds: 29, itemHeight: 132)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                        child: _MarqueeColumn(
+                            images: col2, down: true, seconds: 21, itemHeight: 132)),
+                  ],
                 ),
               ),
             ),
@@ -950,23 +954,101 @@ class _Account extends StatelessWidget {
                 border: Border.all(color: AppColors.line)),
             btn('Sign up with email', AppColors.canvas, AppColors.ink,
                 border: Border.all(color: AppColors.ink, width: 1.5)),
-            const SizedBox(height: 6),
-            Container(
-              padding: const EdgeInsets.all(13),
-              decoration: BoxDecoration(
-                  color: AppColors.sand, borderRadius: BorderRadius.circular(12)),
+            const SizedBox(height: 4),
+            Center(
               child: Text.rich(
                 TextSpan(children: [
-                  const TextSpan(text: 'Your style profile (shape, height, coloring, aesthetic) is '),
-                  TextSpan(text: 'public', style: t.bodySmall?.copyWith(fontWeight: FontWeight.w700, color: AppColors.ink)),
-                  const TextSpan(text: ' and shown with your posts. '),
-                  TextSpan(text: 'Weight stays private', style: t.bodySmall?.copyWith(fontWeight: FontWeight.w700, color: AppColors.ink)),
-                  const TextSpan(text: ' — used only to improve matches.'),
+                  const TextSpan(text: 'Your style profile is public · '),
+                  TextSpan(
+                      text: 'weight stays private',
+                      style: t.bodySmall
+                          ?.copyWith(fontWeight: FontWeight.w700, color: AppColors.ink2)),
                 ]),
-                style: t.bodySmall?.copyWith(color: AppColors.ink2, height: 1.45),
+                textAlign: TextAlign.center,
+                style: t.bodySmall?.copyWith(color: AppColors.ink3),
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A seamlessly-looping vertical marquee of outfit photos. Columns drift up or
+/// down continuously (alternating direction) for gentle, premium motion.
+class _MarqueeColumn extends StatefulWidget {
+  const _MarqueeColumn({
+    required this.images,
+    required this.down,
+    required this.seconds,
+    required this.itemHeight,
+  });
+  final List<String> images;
+  final bool down;
+  final int seconds;
+  final double itemHeight;
+
+  @override
+  State<_MarqueeColumn> createState() => _MarqueeColumnState();
+}
+
+class _MarqueeColumnState extends State<_MarqueeColumn>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: Duration(seconds: widget.seconds),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const gap = 8.0;
+    final setHeight = widget.images.length * (widget.itemHeight + gap);
+
+    Widget tile(String url) => Padding(
+          padding: const EdgeInsets.only(bottom: gap),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(13),
+            child: CachedNetworkImage(
+              imageUrl: url,
+              height: widget.itemHeight,
+              width: double.infinity,
+              fit: BoxFit.cover,
+              placeholder: (_, _) => const ColoredBox(color: AppColors.sand),
+            ),
+          ),
+        );
+
+    // Two stacked copies so the loop is seamless.
+    final content = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final u in widget.images) tile(u),
+        for (final u in widget.images) tile(u),
+      ],
+    );
+
+    return ClipRect(
+      child: AnimatedBuilder(
+        animation: _c,
+        builder: (context, child) {
+          final v = _c.value;
+          final dy = widget.down ? (v - 1) * setHeight : -v * setHeight;
+          return Transform.translate(offset: Offset(0, dy), child: child);
+        },
+        // OverflowBox lets the looping column exceed the slot height without a
+        // RenderFlex overflow; ClipRect clips the visible window.
+        child: OverflowBox(
+          minHeight: 0,
+          maxHeight: double.infinity,
+          alignment: Alignment.topCenter,
+          child: content,
         ),
       ),
     );
