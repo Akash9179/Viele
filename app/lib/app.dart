@@ -2,19 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import 'core/theme/app_theme.dart';
-import 'core/widgets/placeholder_screen.dart';
 import 'features/catwalk/presentation/catwalk_screen.dart';
 import 'features/discover/presentation/discover_screen.dart';
 import 'features/feed/presentation/feed_screen.dart';
 import 'features/onboarding/presentation/onboarding_flow.dart';
+import 'features/post/presentation/post_compose_screen.dart';
 import 'features/profile/presentation/profile_screen.dart';
 import 'features/shell/app_shell.dart';
 
 final _rootKey = GlobalKey<NavigatorState>();
 
+/// Debug-only initial route for screenshots (`--dart-define=ROUTE=/profile`).
+const _kInitialRoute = String.fromEnvironment('ROUTE', defaultValue: '/onboarding');
+
 final _router = GoRouter(
   navigatorKey: _rootKey,
-  initialLocation: '/onboarding',
+  initialLocation: _kInitialRoute,
   routes: [
     GoRoute(path: '/onboarding', builder: (_, _) => const OnboardingFlow()),
     StatefulShellRoute.indexedStack(
@@ -27,14 +30,7 @@ final _router = GoRouter(
           GoRoute(path: '/discover', builder: (_, _) => const DiscoverScreen()),
         ]),
         StatefulShellBranch(routes: [
-          GoRoute(
-            path: '/post',
-            builder: (_, _) => const PlaceholderScreen(
-              title: 'New post',
-              subtitle: 'Single-screen compose is up next.',
-              icon: Icons.add_a_photo_outlined,
-            ),
-          ),
+          GoRoute(path: '/post', builder: (_, _) => const PostComposeScreen()),
         ]),
         StatefulShellBranch(routes: [
           GoRoute(path: '/catwalk', builder: (_, _) => const CatwalkScreen()),
