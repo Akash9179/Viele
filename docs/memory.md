@@ -30,7 +30,8 @@ Living context & decision log for Viele. Complements `docs/SRS.md` (full vision)
 - [x] **SRS v1.4 → v1.5** (2026-06-15) — folded schema concretizations: §5.1 split note, DR-4 table-split clarification, §3.4 feed() RPC + private media bucket rows, headers/footer. No new FRs.
 - [ ] `docs/design.md` (reference: https://annafashion.lovable.app/)
 - [ ] Scaffold Flutter app + React admin
-- [x] **Provisioned the dedicated, isolated Supabase project** (2026-06-15, explicit go-ahead): name `viele`, **ref `mdgublyyxcgpwvnmnlxe`**, org `typtdvcjzflwpulemafi`, region `us-east-1`, free tier. **Only this project may be targeted.** Next: apply the schema spec as the first migration (tables + RLS + feed() RPC + storage).
+- [x] **Provisioned the dedicated, isolated Supabase project** (2026-06-15, explicit go-ahead): name `viele`, **ref `mdgublyyxcgpwvnmnlxe`**, org `typtdvcjzflwpulemafi`, region `us-east-1`, free tier. **Only this project may be targeted.**
+- [x] **Applied the schema as the first migration** (2026-06-15): `supabase/migrations/0001_initial_schema.sql` (11 tables, **RLS on every one**, profiles_private/posts_private isolation, helper fns, indexes, private `post-media` bucket) + `0002_security_hardening.sql` (citext→extensions, is_blocked→private schema). **Security advisor = 0 findings.** Migrations committed to repo under `supabase/`. Next: feed() RPC + auth providers + client wiring.
 
 ## The MVP (current build target)
 Locked via CEO review, **confirmed + amended by Eugene 2026-06-09.** `docs/Viele-MVP-Plan.md` still needs updating to match.
