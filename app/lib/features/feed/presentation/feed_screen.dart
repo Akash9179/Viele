@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/tokens.dart';
 import '../data/mock_feed.dart';
@@ -179,7 +180,13 @@ class _RecommendedRow extends StatelessWidget {
             children: [
               for (var i = 0; i < mockRecommended.length; i++) ...[
                 if (i > 0) const SizedBox(width: 15),
-                SizedBox(
+                GestureDetector(
+                  onTap: () => context.push('/user', extra: (
+                    name: mockRecommended[i].name,
+                    avatar: mockRecommended[i].avatar,
+                    pct: mockRecommended[i].pct,
+                  )),
+                  child: SizedBox(
                   width: 60,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -210,7 +217,7 @@ class _RecommendedRow extends StatelessWidget {
                               fontWeight: FontWeight.w600)),
                     ],
                   ),
-                ),
+                )),
               ],
             ],
           ),

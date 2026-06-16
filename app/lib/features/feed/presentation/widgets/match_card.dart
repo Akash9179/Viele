@@ -1,52 +1,68 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../../core/state/interactions.dart';
 import '../../../../core/theme/tokens.dart';
 import '../../data/feed_post.dart';
 
 /// A masonry feed card. The **photo is the hero** — only the match badge and
 /// save sit on the image; author name, attributes, and likes live in a clean
-/// caption below it. See `docs/design.md` §5.
-class MatchCard extends StatelessWidget {
+/// caption below it. Tap opens the outfit detail. See `docs/design.md` §5.
+class MatchCard extends ConsumerWidget {
   const MatchCard({super.key, required this.post});
 
   final FeedPost post;
 
   @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        DecoratedBox(
-          decoration: const BoxDecoration(
-            borderRadius: BorderRadius.all(Radius.circular(18)),
-            boxShadow: AppShadows.soft,
-          ),
-          child: ClipRRect(
-            borderRadius: const BorderRadius.all(Radius.circular(18)),
-            child: Stack(
-              children: [
-                AspectRatio(
-                  aspectRatio: 0.72,
-                  child: CachedNetworkImage(
-                    imageUrl: post.imageUrl,
-                    fit: BoxFit.cover,
-                    placeholder: (_, _) =>
-                        const ColoredBox(color: AppColors.sand),
-                    errorWidget: (_, _, _) =>
-                        const ColoredBox(color: AppColors.taupe),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final saved = ref.watch(interactionsProvider).saved.contains(post.id);
+    return GestureDetector(
+      onTap: () => context.push('/outfit', extra: post),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          DecoratedBox(
+            decoration: const BoxDecoration(
+              borderRadius: BorderRadius.all(Radius.circular(18)),
+              boxShadow: AppShadows.soft,
+            ),
+            child: ClipRRect(
+              borderRadius: const BorderRadius.all(Radius.circular(18)),
+              child: Stack(
+                children: [
+                  AspectRatio(
+                    aspectRatio: 0.72,
+                    child: CachedNetworkImage(
+                      imageUrl: post.imageUrl,
+                      fit: BoxFit.cover,
+                      placeholder: (_, _) =>
+                          const ColoredBox(color: AppColors.sand),
+                      errorWidget: (_, _, _) =>
+                          const ColoredBox(color: AppColors.taupe),
+                    ),
                   ),
-                ),
-                Positioned(
-                    top: 10, left: 10, child: _MatchPill(pct: post.matchPct)),
-                const Positioned(top: 10, right: 10, child: _SaveButton()),
-              ],
+                  Positioned(
+                      top: 10, left: 10, child: _MatchPill(pct: post.matchPct)),
+                  Positioned(
+                    top: 10,
+                    right: 10,
+                    child: _SaveButton(
+                      saved: saved,
+                      onTap: () => ref
+                          .read(interactionsProvider.notifier)
+                          .toggleSave(post.id),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: AppSpacing.s8),
-        _Caption(post: post),
-      ],
+          const SizedBox(height: AppSpacing.s8),
+          _Caption(post: post),
+        ],
+      ),
     );
   }
 }
@@ -91,19 +107,24 @@ class _MatchPill extends StatelessWidget {
 }
 
 class _SaveButton extends StatelessWidget {
-  const _SaveButton();
+  const _SaveButton({required this.saved, required this.onTap});
+  final bool saved;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 30,
-      height: 30,
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.95),
-        shape: BoxShape.circle,
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 30,
+        height: 30,
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.95),
+          shape: BoxShape.circle,
+        ),
+        child: Icon(saved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+            size: 17, color: AppColors.ink),
       ),
-      child: const Icon(Icons.bookmark_border_rounded,
-          size: 17, color: AppColors.ink),
     );
   }
 }
