@@ -30,7 +30,7 @@ Living context & decision log for Viele. Complements `docs/SRS.md` (full vision)
 - [x] **SRS v1.4 → v1.5** (2026-06-15) — folded schema concretizations: §5.1 split note, DR-4 table-split clarification, §3.4 feed() RPC + private media bucket rows, headers/footer. No new FRs.
 - [ ] `docs/design.md` (reference: https://annafashion.lovable.app/)
 - [ ] Scaffold Flutter app + React admin
-- [ ] Provision **dedicated, isolated** Supabase project (only with explicit go-ahead)
+- [x] **Provisioned the dedicated, isolated Supabase project** (2026-06-15, explicit go-ahead): name `viele`, **ref `mdgublyyxcgpwvnmnlxe`**, org `typtdvcjzflwpulemafi`, region `us-east-1`, free tier. **Only this project may be targeted.** Next: apply the schema spec as the first migration (tables + RLS + feed() RPC + storage).
 
 ## The MVP (current build target)
 Locked via CEO review, **confirmed + amended by Eugene 2026-06-09.** `docs/Viele-MVP-Plan.md` still needs updating to match.
