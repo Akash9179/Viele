@@ -31,11 +31,12 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   final Set<String> _aesthetics = {'Quiet Luxury', 'Off-Duty', 'Dark Academia'};
   SilhouetteShape? _silhouette = SilhouetteShape.hourglass;
   int? _skinTone = 3;
+  Undertone? _undertone = Undertone.neutral;
   String _hair = 'Brown';
   String _eye = 'Hazel';
   String _height = "5'6\"";
 
-  static const _last = 8;
+  static const _last = 9;
 
   void _next() {
     if (_index >= _last) {
@@ -116,15 +117,30 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
             eyebrow: 'Your coloring · optional',
             title: 'What\'s your skin tone?',
             subtitle:
-                'Tap the closest — we match on warmth and depth, never an exact value, so there\'s no wrong answer.',
-            reassure: 'Helps show looks that flatter your coloring. Adjustable anytime.',
-            ctaLabel: 'See my feed →',
+                'Tap the closest — we match on closeness, never an exact value, so there\'s no wrong answer.',
+            reassure: 'Tip: hold it next to your jaw or inner wrist in natural light.',
             onContinue: _next,
             onBack: _back,
             onSkip: _next,
             child: _SkinToneRow(
               value: _skinTone,
               onChanged: (v) => setState(() => _skinTone = v),
+            ),
+          ),
+          _Teaser(
+            step: 5,
+            eyebrow: 'Your coloring · optional',
+            title: 'And your undertone?',
+            subtitle:
+                'The other half of a good color match — it\'s why people at the same depth suit different palettes.',
+            reassure: 'Check your inner-wrist veins: greenish leans warm, bluish leans cool.',
+            ctaLabel: 'See my feed →',
+            onContinue: _next,
+            onBack: _back,
+            onSkip: _next,
+            child: _UndertoneChoice(
+              value: _undertone,
+              onChanged: (v) => setState(() => _undertone = v),
             ),
           ),
           _Wow(onContinue: _next),
@@ -184,14 +200,14 @@ class _PrimaryButton extends StatelessWidget {
 
 class _Progress extends StatelessWidget {
   const _Progress({required this.step});
-  final int step; // 1..4
+  final int step; // 1..5
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(AppSpacing.s24, 8, AppSpacing.s24, 0),
       child: Row(
         children: [
-          for (var i = 1; i <= 4; i++) ...[
+          for (var i = 1; i <= 5; i++) ...[
             if (i > 1) const SizedBox(width: 5),
             Expanded(
               child: Container(
@@ -586,28 +602,144 @@ class _SkinToneRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
     return Padding(
-      padding: const EdgeInsets.fromLTRB(AppSpacing.s24, 26, AppSpacing.s24, 0),
-      child: Wrap(
-        spacing: 12,
-        runSpacing: 14,
-        alignment: WrapAlignment.center,
+      padding: const EdgeInsets.fromLTRB(AppSpacing.s24, 24, AppSpacing.s24, 0),
+      child: Column(
         children: [
-          for (var i = 0; i < monkTones.length; i++)
-            GestureDetector(
-              onTap: () => onChanged(i),
-              child: Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  color: monkTones[i],
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.black.withValues(alpha: 0.06), width: 2),
-                  boxShadow: value == i
-                      ? const [
-                          BoxShadow(color: AppColors.ink, spreadRadius: 2.5, blurRadius: 0)
-                        ]
-                      : null,
+          Wrap(
+            spacing: 13,
+            runSpacing: 15,
+            alignment: WrapAlignment.center,
+            children: [
+              for (var i = 0; i < monkTones.length; i++)
+                GestureDetector(
+                  onTap: () => onChanged(i),
+                  child: Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: monkTones[i],
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                          color: Colors.black.withValues(alpha: 0.06), width: 2),
+                      boxShadow: value == i
+                          ? const [
+                              BoxShadow(color: AppColors.ink, spreadRadius: 3, blurRadius: 0)
+                            ]
+                          : null,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 22),
+          // Confirm strip — shows the chosen tone larger so people can verify.
+          if (value != null)
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.paper,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.line),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: monkTones[value!],
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                          color: Colors.black.withValues(alpha: 0.08), width: 2),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Your tone · ${value! + 1} of 10',
+                            style: t.bodyLarge?.copyWith(fontWeight: FontWeight.w700)),
+                        const SizedBox(height: 1),
+                        Text('Tap a lighter or deeper swatch to fine-tune.',
+                            style: t.bodySmall),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _UndertoneChoice extends StatelessWidget {
+  const _UndertoneChoice({required this.value, required this.onChanged});
+  final Undertone? value;
+  final ValueChanged<Undertone> onChanged;
+
+  static const _cue = <Undertone, List<Color>>{
+    Undertone.warm: [Color(0xFFE7C9A0), Color(0xFFD8A56A)],
+    Undertone.cool: [Color(0xFFCBD4DE), Color(0xFFA9B7C6)],
+    Undertone.neutral: [Color(0xFFE0D6C4), Color(0xFFBFC2BE)],
+    Undertone.notSure: [Color(0xFFE6DCC8), Color(0xFFE6DCC8)],
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.s24, 22, AppSpacing.s24, 0),
+      child: Column(
+        children: [
+          for (final u in Undertone.values)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 11),
+              child: GestureDetector(
+                onTap: () => onChanged(u),
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: value == u ? Colors.white : AppColors.paper,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                        color: value == u ? AppColors.ink : AppColors.line,
+                        width: 1.5),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 34,
+                        height: 34,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: LinearGradient(colors: _cue[u]!),
+                          border: Border.all(
+                              color: Colors.black.withValues(alpha: 0.06)),
+                        ),
+                      ),
+                      const SizedBox(width: 13),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(undertoneLabels[u]!,
+                                style: t.bodyLarge?.copyWith(
+                                    fontWeight: FontWeight.w700, fontSize: 16)),
+                            const SizedBox(height: 1),
+                            Text(undertoneHints[u]!, style: t.bodyMedium),
+                          ],
+                        ),
+                      ),
+                      if (value == u)
+                        const Icon(Icons.check_circle_rounded,
+                            color: AppColors.match, size: 22),
+                    ],
+                  ),
                 ),
               ),
             ),

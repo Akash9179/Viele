@@ -55,6 +55,23 @@ const silhouetteDescriptors = <SilhouetteShape, String>{
   SilhouetteShape.notSure: "We'll learn as you go",
 };
 
+/// Skin undertone — the second axis of accurate color matching (depth is Monk).
+enum Undertone { warm, cool, neutral, notSure }
+
+const undertoneLabels = <Undertone, String>{
+  Undertone.warm: 'Warm',
+  Undertone.cool: 'Cool',
+  Undertone.neutral: 'Neutral',
+  Undertone.notSure: 'Not sure',
+};
+
+const undertoneHints = <Undertone, String>{
+  Undertone.warm: 'Golden / peachy · gold jewelry suits you',
+  Undertone.cool: 'Pink / bluish · silver jewelry suits you',
+  Undertone.neutral: 'A balance of both',
+  Undertone.notSure: "We'll keep it broad",
+};
+
 /// Monk 10-tone skin scale (ordinal 1→10, light→deep).
 const monkTones = <Color>[
   Color(0xFFF6EDE4),

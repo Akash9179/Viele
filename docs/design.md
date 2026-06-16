@@ -107,6 +107,9 @@ iOS large-title behavior (collapses to inline title on scroll) where the platfor
 
 **Skin tone — Monk 10-tone (ordinal 1→10, light→deep):**
 `#f6ede4 · #f3e7db · #f7ead0 · #eadaba · #d7bd96 · #a07e56 · #825c43 · #604134 · #3a312a · #292420`
+*Selection aids: larger 52px swatches, a "your tone · N of 10" confirm strip, jaw/inner-wrist natural-light tip.*
+
+**Undertone (MVP):** Warm · Cool · Neutral · Not sure — the second color-match axis, with plain cues (gold vs silver jewelry; inner-wrist vein color). Optional.
 
 **Body silhouette — standard fashion-industry names + descriptor** (women set; men set parallel: Rectangle · Triangle · Trapezoid · Oval · Inverted Triangle):
 Hourglass "balanced, defined waist" · Pear "fuller hips" · Rectangle "straight up and down" · Apple / Round "fuller midsection" · Inverted Triangle "broader shoulders" · **Not sure / skip**. Paired with refined line-art croquis (`SilhouetteIcon`). *Optional, reassuring, non-prescriptive (see brand inclusivity ethos).*
