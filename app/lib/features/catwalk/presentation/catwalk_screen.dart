@@ -8,9 +8,9 @@ class CatwalkScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const PlaceholderScreen(
-      title: 'Catwalk',
-      subtitle: 'Showcase looks are coming in a later version.',
-      icon: Icons.bookmark_outline_rounded,
+      title: 'Catwalk is on the way',
+      subtitle: 'A runway of standout looks from people built like you. Coming soon.',
+      icon: Icons.auto_awesome_outlined,
     );
   }
 }

@@ -9,8 +9,8 @@ class DiscoverScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const PlaceholderScreen(
-      title: 'Discover',
-      subtitle: 'Swipe-to-explore is coming in a later version.',
+      title: 'Discover is on the way',
+      subtitle: 'Swipe through looks picked for you, one at a time. Coming soon.',
       icon: Icons.explore_outlined,
     );
   }

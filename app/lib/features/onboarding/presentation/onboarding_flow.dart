@@ -844,11 +844,11 @@ class _Wow extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Tap save to keep a look',
+                          Text('Tap a look to save it',
                               style: t.bodyLarge?.copyWith(
                                   color: AppColors.onInk,
                                   fontWeight: FontWeight.w600)),
-                          Text('Free — we\'ll set up your account then',
+                          Text('Free — no account needed yet',
                               style: t.bodySmall?.copyWith(
                                   color: const Color(0xB3F6F1E8))),
                         ],
@@ -905,12 +905,45 @@ class _Account extends StatelessWidget {
           children: [
             Text('KEEP YOUR STYLE', style: t.labelSmall?.copyWith(letterSpacing: 1.8)),
             const SizedBox(height: 8),
-            Text('Save your looks &\nget your matches',
+            Text('Save your looks,\nkeep your matches',
                 style: t.displayLarge?.copyWith(fontSize: 28)),
             const SizedBox(height: 7),
-            Text('Your style profile carries over. One tap.',
+            Text('Your style profile is ready — make an account to keep it.',
                 style: t.bodyLarge?.copyWith(color: AppColors.ink2)),
-            const Spacer(),
+            const SizedBox(height: 18),
+            Expanded(
+              child: ClipRect(
+                child: ShaderMask(
+                  shaderCallback: (rect) => const LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Colors.black, Colors.black, Colors.transparent],
+                    stops: [0.0, 0.74, 1.0],
+                  ).createShader(rect),
+                  blendMode: BlendMode.dstIn,
+                  child: GridView.count(
+                    physics: const NeverScrollableScrollPhysics(),
+                    crossAxisCount: 3,
+                    mainAxisSpacing: 8,
+                    crossAxisSpacing: 8,
+                    childAspectRatio: 0.78,
+                    children: [
+                      for (final p in mockFeed)
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(13),
+                          child: CachedNetworkImage(
+                            imageUrl: p.imageUrl,
+                            fit: BoxFit.cover,
+                            placeholder: (_, _) =>
+                                const ColoredBox(color: AppColors.sand),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
             btn('Continue with Apple', Colors.black, Colors.white, icon: Icons.apple),
             btn('Continue with Google', Colors.white, const Color(0xFF1F1F1F),
                 icon: Icons.g_mobiledata_rounded,

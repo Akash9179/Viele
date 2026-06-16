@@ -105,7 +105,7 @@ class PostComposeScreen extends StatelessWidget {
                             Text('Public',
                                 style: t.bodyLarge?.copyWith(
                                     fontWeight: FontWeight.w700, fontSize: 14)),
-                            Text('Anyone can discover this — that\'s how matching works in v1.',
+                            Text('Anyone can discover this look — it\'s how we match you to people like you.',
                                 style: t.bodySmall),
                           ],
                         ),
@@ -317,11 +317,11 @@ void _openPostGate(BuildContext context) {
                         borderRadius: BorderRadius.circular(3))),
               ),
               const SizedBox(height: 14),
-              Text('One quick thing before you post',
+              Text('Just three things before you post',
                   style: t.headlineSmall?.copyWith(fontSize: 20)),
               const SizedBox(height: 6),
               Text(
-                  'Posts are stamped with your shape & coloring so they match the right people. We just need three:',
+                  'Your looks reach people built like you, so they need your shape and coloring. Quick to add — and yours to edit anytime.',
                   style: t.bodyMedium),
               const SizedBox(height: 16),
               Text('HEIGHT', style: t.labelSmall),
