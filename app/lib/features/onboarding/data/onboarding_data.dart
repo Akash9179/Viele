@@ -35,7 +35,7 @@ enum BodyTypeSet { women, men, both }
 
 /// Body silhouettes — standard fashion-industry names (Hourglass, Pear, …) with
 /// a plain, non-prescriptive descriptor (`docs/brand.md` inclusivity ethos).
-enum SilhouetteShape { hourglass, pear, rectangle, apple, invertedTriangle, notSure }
+enum SilhouetteShape { hourglass, pear, rectangle, apple, invertedTriangle }
 
 const silhouetteLabels = <SilhouetteShape, String>{
   SilhouetteShape.hourglass: 'Hourglass',
@@ -43,7 +43,6 @@ const silhouetteLabels = <SilhouetteShape, String>{
   SilhouetteShape.rectangle: 'Rectangle',
   SilhouetteShape.apple: 'Apple / Round',
   SilhouetteShape.invertedTriangle: 'Inverted Triangle',
-  SilhouetteShape.notSure: 'Not sure',
 };
 
 const silhouetteDescriptors = <SilhouetteShape, String>{
@@ -52,24 +51,21 @@ const silhouetteDescriptors = <SilhouetteShape, String>{
   SilhouetteShape.rectangle: 'Straight up and down',
   SilhouetteShape.apple: 'Fuller midsection',
   SilhouetteShape.invertedTriangle: 'Broader shoulders',
-  SilhouetteShape.notSure: "We'll learn as you go",
 };
 
 /// Skin undertone — the second axis of accurate color matching (depth is Monk).
-enum Undertone { warm, cool, neutral, notSure }
+enum Undertone { warm, cool, neutral }
 
 const undertoneLabels = <Undertone, String>{
   Undertone.warm: 'Warm',
   Undertone.cool: 'Cool',
   Undertone.neutral: 'Neutral',
-  Undertone.notSure: 'Not sure',
 };
 
 const undertoneHints = <Undertone, String>{
   Undertone.warm: 'Golden / peachy · gold jewelry suits you',
   Undertone.cool: 'Pink / bluish · silver jewelry suits you',
   Undertone.neutral: 'A balance of both',
-  Undertone.notSure: "We'll keep it broad",
 };
 
 /// Monk 10-tone skin scale (ordinal 1→10, light→deep).

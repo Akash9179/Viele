@@ -7,17 +7,20 @@ import 'package:go_router/go_router.dart';
 import '../../../core/state/interactions.dart';
 import '../../../core/theme/tokens.dart';
 import '../../feed/data/mock_feed.dart';
+import '../../moderation/presentation/moderation_actions.dart';
 
 /// Another user's public profile — opened from the Recommended row or a post
 /// author. Same layout as the self profile but with Follow instead of Edit.
 class OtherUserProfileScreen extends ConsumerWidget {
   const OtherUserProfileScreen({
     super.key,
+    required this.userId,
     required this.name,
     required this.avatarUrl,
     this.matchPct,
   });
 
+  final String userId;
   final String name;
   final String avatarUrl;
   final int? matchPct;
@@ -25,7 +28,7 @@ class OtherUserProfileScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = Theme.of(context).textTheme;
-    final following = ref.watch(interactionsProvider).following.contains(name);
+    final following = ref.watch(interactionsProvider).following.contains(userId);
     final handle = '@${name.toLowerCase().replaceAll(' ', '')}';
 
     return Scaffold(
@@ -36,6 +39,12 @@ class OtherUserProfileScreen extends ConsumerWidget {
         leading: const BackButton(color: AppColors.ink),
         title: Text(handle, style: t.headlineSmall?.copyWith(fontSize: 16)),
         centerTitle: false,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.more_horiz_rounded, color: AppColors.ink),
+            onPressed: () => _openUserOverflow(context, ref, userId, name, handle),
+          ),
+        ],
       ),
       body: CustomScrollView(
         slivers: [
@@ -125,7 +134,7 @@ class OtherUserProfileScreen extends ConsumerWidget {
                   const SizedBox(height: 14),
                   GestureDetector(
                     onTap: () =>
-                        ref.read(interactionsProvider.notifier).toggleFollow(name),
+                        ref.read(interactionsProvider.notifier).toggleFollow(userId),
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 160),
                       height: 42,
@@ -188,4 +197,52 @@ class _Stat extends StatelessWidget {
       ],
     );
   }
+}
+
+void _openUserOverflow(BuildContext context, WidgetRef ref, String userId,
+    String name, String handle) {
+  showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: AppColors.canvas,
+    shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadii.sheet))),
+    builder: (ctx) {
+      final t = Theme.of(ctx).textTheme;
+      Widget row(IconData icon, String label,
+              {Color? color, required VoidCallback onTap}) =>
+          ListTile(
+            leading: Icon(icon, color: color ?? AppColors.ink, size: 21),
+            title: Text(label,
+                style: t.bodyLarge?.copyWith(color: color ?? AppColors.ink)),
+            onTap: onTap,
+          );
+      return SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(
+                width: 40,
+                height: 5,
+                decoration: BoxDecoration(
+                    color: AppColors.ink3, borderRadius: BorderRadius.circular(3))),
+            const SizedBox(height: 8),
+            row(Icons.flag_outlined, 'Report $handle',
+                color: const Color(0xFFD64545), onTap: () {
+              Navigator.of(ctx).pop();
+              showReportSheet(context, subject: handle);
+            }),
+            row(Icons.block_rounded, 'Block $name',
+                color: const Color(0xFFD64545), onTap: () {
+              Navigator.of(ctx).pop();
+              confirmBlock(context, ref, userId: userId, name: name, onBlocked: () {
+                if (Navigator.of(context).canPop()) Navigator.of(context).pop();
+              });
+            }),
+            const SizedBox(height: 12),
+          ],
+        ),
+      );
+    },
+  );
 }

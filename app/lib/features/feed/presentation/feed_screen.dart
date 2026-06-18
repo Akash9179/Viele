@@ -1,38 +1,131 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/state/interactions.dart';
 import '../../../core/theme/tokens.dart';
+import '../data/feed_repository.dart';
 import '../data/mock_feed.dart';
 import 'widgets/match_card.dart';
 
 /// The Feed / Home wedge. Layout per Eugene's mockup + `docs/design.md`:
 /// header → filter chips → recommended-people row → curated masonry.
-class FeedScreen extends StatelessWidget {
+/// Blocked authors are filtered out (FR-SG.8).
+class FeedScreen extends ConsumerWidget {
   const FeedScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final blocked = ref.watch(interactionsProvider).blocked;
+    final feedAsync = ref.watch(feedProvider);
     return SafeArea(
       bottom: false,
-      child: CustomScrollView(
-        slivers: [
-          const SliverToBoxAdapter(child: _AppHeader()),
-          const SliverToBoxAdapter(child: _FilterChips()),
-          const SliverToBoxAdapter(child: _RecommendedRow()),
-          const SliverToBoxAdapter(child: _CuratedHeader()),
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(
-                AppSpacing.s20, AppSpacing.s12, AppSpacing.s20, AppSpacing.s24),
-            sliver: SliverMasonryGrid.count(
-              crossAxisCount: 2,
-              mainAxisSpacing: 13,
-              crossAxisSpacing: 13,
-              childCount: mockFeed.length,
-              itemBuilder: (context, i) => MatchCard(post: mockFeed[i]),
+      child: RefreshIndicator(
+        color: AppColors.ink,
+        onRefresh: () => ref.refresh(feedProvider.future),
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            const SliverToBoxAdapter(child: _AppHeader()),
+            const SliverToBoxAdapter(child: _FilterChips()),
+            const SliverToBoxAdapter(child: _RecommendedRow()),
+            const SliverToBoxAdapter(child: _CuratedHeader()),
+            ...feedAsync.when(
+              loading: () => const [SliverToBoxAdapter(child: _FeedLoading())],
+              error: (e, _) => [
+                SliverToBoxAdapter(
+                    child: _FeedMessage(
+                  icon: Icons.cloud_off_rounded,
+                  title: "Couldn't load your feed",
+                  body: 'Check your connection and try again.',
+                  onRetry: () => ref.invalidate(feedProvider),
+                )),
+              ],
+              data: (all) {
+                final posts =
+                    all.where((p) => !blocked.contains(p.authorId)).toList();
+                if (posts.isEmpty) {
+                  return const [
+                    SliverToBoxAdapter(
+                        child: _FeedMessage(
+                      icon: Icons.checkroom_rounded,
+                      title: 'No looks yet',
+                      body:
+                          'Be the first to post a look — tap ＋ to share your outfit.',
+                    )),
+                  ];
+                }
+                return [
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(AppSpacing.s20,
+                        AppSpacing.s12, AppSpacing.s20, AppSpacing.s24),
+                    sliver: SliverMasonryGrid.count(
+                      crossAxisCount: 2,
+                      mainAxisSpacing: 13,
+                      crossAxisSpacing: 13,
+                      childCount: posts.length,
+                      itemBuilder: (context, i) => MatchCard(post: posts[i]),
+                    ),
+                  ),
+                ];
+              },
             ),
-          ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FeedLoading extends StatelessWidget {
+  const _FeedLoading();
+  @override
+  Widget build(BuildContext context) => const Padding(
+        padding: EdgeInsets.only(top: 80),
+        child: Center(
+            child: CircularProgressIndicator(color: AppColors.ink, strokeWidth: 2.5)),
+      );
+}
+
+class _FeedMessage extends StatelessWidget {
+  const _FeedMessage(
+      {required this.icon, required this.title, required this.body, this.onRetry});
+  final IconData icon;
+  final String title, body;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(40, 70, 40, 0),
+      child: Column(
+        children: [
+          Icon(icon, size: 40, color: AppColors.ink3),
+          const SizedBox(height: 14),
+          Text(title, style: t.titleLarge, textAlign: TextAlign.center),
+          const SizedBox(height: 6),
+          Text(body,
+              style: t.bodyLarge?.copyWith(color: AppColors.ink2),
+              textAlign: TextAlign.center),
+          if (onRetry != null) ...[
+            const SizedBox(height: 18),
+            GestureDetector(
+              onTap: onRetry,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 22, vertical: 11),
+                decoration: BoxDecoration(
+                    color: AppColors.ink,
+                    borderRadius: BorderRadius.circular(AppRadii.pill)),
+                child: Text('Try again',
+                    style: t.labelLarge?.copyWith(
+                        color: AppColors.onInk, fontWeight: FontWeight.w700)),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -54,7 +147,9 @@ class _AppHeader extends StatelessWidget {
             child: Text('Viele',
                 style: t.displayLarge?.copyWith(fontSize: 32)),
           ),
-          const _CircleIcon(icon: Icons.search_rounded),
+          _CircleIcon(
+              icon: Icons.search_rounded,
+              onTap: () => context.push('/search')),
           const SizedBox(width: 10),
           const _CircleIcon(icon: Icons.notifications_none_rounded, dot: true),
         ],
@@ -64,23 +159,27 @@ class _AppHeader extends StatelessWidget {
 }
 
 class _CircleIcon extends StatelessWidget {
-  const _CircleIcon({required this.icon, this.dot = false});
+  const _CircleIcon({required this.icon, this.dot = false, this.onTap});
   final IconData icon;
   final bool dot;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        Container(
-          width: 40,
-          height: 40,
-          decoration: BoxDecoration(
-            color: AppColors.paper,
-            shape: BoxShape.circle,
-            border: Border.all(color: AppColors.line),
+        GestureDetector(
+          onTap: onTap,
+          child: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AppColors.paper,
+              shape: BoxShape.circle,
+              border: Border.all(color: AppColors.line),
+            ),
+            child: Icon(icon, size: 18, color: AppColors.ink),
           ),
-          child: Icon(icon, size: 18, color: AppColors.ink),
         ),
         if (dot)
           Positioned(
@@ -182,6 +281,7 @@ class _RecommendedRow extends StatelessWidget {
                 if (i > 0) const SizedBox(width: 15),
                 GestureDetector(
                   onTap: () => context.push('/user', extra: (
+                    id: mockRecommended[i].id,
                     name: mockRecommended[i].name,
                     avatar: mockRecommended[i].avatar,
                     pct: mockRecommended[i].pct,
@@ -249,7 +349,7 @@ class _CuratedHeader extends StatelessWidget {
                 decoration: const BoxDecoration(
                     color: AppColors.match, shape: BoxShape.circle),
               ),
-              Text('94% average match',
+              Text('Ranked by how well they match you',
                   style: t.bodyMedium?.copyWith(color: AppColors.ink2)),
             ],
           ),

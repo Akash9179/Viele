@@ -14,14 +14,11 @@ class SilhouetteIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final notSure = shape == SilhouetteShape.notSure;
     return CustomPaint(
       size: const Size(40, 64),
       painter: _SilhouettePainter(
         shape: shape,
-        color: notSure
-            ? AppColors.ink3
-            : (selected ? AppColors.ink : AppColors.ink2),
+        color: selected ? AppColors.ink : AppColors.ink2,
       ),
     );
   }
@@ -40,7 +37,6 @@ class _SilhouettePainter extends CustomPainter {
     SilhouetteShape.rectangle: (0.46, 0.42, 0.46),
     SilhouetteShape.apple: (0.44, 0.56, 0.46),
     SilhouetteShape.invertedTriangle: (0.60, 0.36, 0.40),
-    SilhouetteShape.notSure: (0.46, 0.42, 0.46),
   };
 
   @override
@@ -118,24 +114,6 @@ class _SilhouettePainter extends CustomPainter {
       lShoulder.dx, lShoulder.dy,
     );
     canvas.drawPath(path, stroke);
-
-    if (shape == SilhouetteShape.notSure) {
-      // a gentle question mark over the neutral form
-      final qPaint = Paint()
-        ..color = AppColors.ink3
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.8
-        ..strokeCap = StrokeCap.round;
-      final qc = Offset(cx, h * 0.58);
-      final r = w * 0.085;
-      final arc = Path()
-        ..addArc(Rect.fromCircle(center: Offset(qc.dx, qc.dy - r), radius: r),
-            3.6, 4.2)
-        ..moveTo(qc.dx, qc.dy - r + r * 0.9)
-        ..lineTo(qc.dx, qc.dy + r * 0.4);
-      canvas.drawPath(arc, qPaint);
-      canvas.drawCircle(Offset(qc.dx, qc.dy + r * 1.1), 1.2, qPaint..style = PaintingStyle.fill);
-    }
   }
 
   @override

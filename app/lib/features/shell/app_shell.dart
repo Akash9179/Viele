@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/state/session.dart';
 import '../../core/theme/tokens.dart';
 
 /// The bottom-tab scaffold: Home · Discover · ＋ · Catwalk · Profile.
 /// v1 shows all five slots; Discover + Catwalk route to "coming soon" (V2 scope,
-/// SRS §9). The center ＋ opens Post compose.
-class AppShell extends StatelessWidget {
+/// SRS §9). The center ＋ opens Post compose — which requires an account, so a
+/// guest is sent through the signup flow first.
+class AppShell extends ConsumerWidget {
   const AppShell({super.key, required this.navigationShell});
 
   final StatefulNavigationShell navigationShell;
@@ -19,21 +22,22 @@ class AppShell extends StatelessWidget {
     (icon: Icons.person_outline_rounded, label: 'PROFILE'),
   ];
 
-  void _onTap(int i) {
-    if (i == 2) {
-      navigationShell.goBranch(2); // Post
-      return;
-    }
-    navigationShell.goBranch(i, initialLocation: i == navigationShell.currentIndex);
-  }
-
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    void onTap(int i) {
+      if (i == 2) {
+        // Posting needs an account — gate guests through signup, then open Post.
+        requireAccount(context, ref, () => navigationShell.goBranch(2));
+        return;
+      }
+      navigationShell.goBranch(i, initialLocation: i == navigationShell.currentIndex);
+    }
+
     return Scaffold(
       body: navigationShell,
       bottomNavigationBar: _VieleTabBar(
         currentIndex: navigationShell.currentIndex,
-        onTap: _onTap,
+        onTap: onTap,
         items: _items,
       ),
     );

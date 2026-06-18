@@ -4,8 +4,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/state/interactions.dart';
+import '../../../core/state/session.dart';
 import '../../../core/theme/tokens.dart';
+import '../../moderation/presentation/moderation_actions.dart';
 import '../data/feed_post.dart';
+
+/// Debug-only: auto-open a moderation sheet for screenshots
+/// (`--dart-define=SHEET=report` or `=block`).
+const _kSheet = String.fromEnvironment('SHEET');
+bool _debugSheetShown = false;
 
 /// Outfit detail — opened by tapping a feed card. Photo, author + public
 /// attributes, caption, aesthetics, shoppable items, and live actions
@@ -28,7 +35,19 @@ class OutfitDetailScreen extends ConsumerWidget {
     final inter = ref.watch(interactionsProvider);
     final saved = inter.saved.contains(post.id);
     final liked = inter.liked.contains(post.id);
-    final following = inter.following.contains(post.authorName);
+    final following = inter.following.contains(post.authorId);
+
+    if (_kSheet.isNotEmpty && !_debugSheetShown) {
+      _debugSheetShown = true;
+      Future.delayed(const Duration(milliseconds: 400), () {
+        if (!context.mounted) return;
+        if (_kSheet == 'report') {
+          showReportSheet(context, subject: 'this post', postId: post.id);
+        } else if (_kSheet == 'block') {
+          confirmBlock(context, ref, userId: post.authorId, name: post.authorName);
+        }
+      });
+    }
 
     return Scaffold(
       body: CustomScrollView(
@@ -56,7 +75,8 @@ class OutfitDetailScreen extends ConsumerWidget {
                         ),
                         _RoundBtn(
                           icon: Icons.more_horiz_rounded,
-                          onTap: () => _openOverflow(context),
+                          onTap: () => _openOverflow(context, ref, post.id,
+                              post.authorId, post.authorName),
                         ),
                       ],
                     ),
@@ -102,6 +122,7 @@ class OutfitDetailScreen extends ConsumerWidget {
                         child: GestureDetector(
                           behavior: HitTestBehavior.opaque,
                           onTap: () => context.push('/user', extra: (
+                            id: post.authorId,
                             name: post.authorName,
                             avatar: post.imageUrl,
                             pct: post.matchPct,
@@ -141,7 +162,7 @@ class OutfitDetailScreen extends ConsumerWidget {
                         following: following,
                         onTap: () => ref
                             .read(interactionsProvider.notifier)
-                            .toggleFollow(post.authorName),
+                            .toggleFollow(post.authorId),
                       ),
                     ],
                   ),
@@ -170,7 +191,8 @@ class OutfitDetailScreen extends ConsumerWidget {
                         icon: saved ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
                         label: saved ? 'Saved' : 'Save',
                         active: saved,
-                        onTap: () => ref.read(interactionsProvider.notifier).toggleSave(post.id),
+                        onTap: () => requireAccount(context, ref,
+                            () => ref.read(interactionsProvider.notifier).toggleSave(post.id)),
                       ),
                       const Spacer(),
                       _RoundBtn(
@@ -346,7 +368,8 @@ class _ItemRow extends StatelessWidget {
   }
 }
 
-void _openOverflow(BuildContext context) {
+void _openOverflow(BuildContext context, WidgetRef ref, String postId,
+    String authorId, String author) {
   showModalBottomSheet<void>(
     context: context,
     backgroundColor: AppColors.canvas,
@@ -354,11 +377,13 @@ void _openOverflow(BuildContext context) {
         borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadii.sheet))),
     builder: (ctx) {
       final t = Theme.of(ctx).textTheme;
-      Widget row(IconData icon, String label, {Color? color}) => ListTile(
+      Widget row(IconData icon, String label,
+              {Color? color, required VoidCallback onTap}) =>
+          ListTile(
             leading: Icon(icon, color: color ?? AppColors.ink, size: 21),
             title: Text(label,
                 style: t.bodyLarge?.copyWith(color: color ?? AppColors.ink)),
-            onTap: () => Navigator.of(ctx).pop(),
+            onTap: onTap,
           );
       return SafeArea(
         child: Column(
@@ -371,9 +396,20 @@ void _openOverflow(BuildContext context) {
                 decoration: BoxDecoration(
                     color: AppColors.ink3, borderRadius: BorderRadius.circular(3))),
             const SizedBox(height: 8),
-            row(Icons.flag_outlined, 'Report post', color: const Color(0xFFD64545)),
-            row(Icons.block_rounded, 'Block this user', color: const Color(0xFFD64545)),
-            row(Icons.link_rounded, 'Copy link'),
+            row(Icons.flag_outlined, 'Report post',
+                color: const Color(0xFFD64545), onTap: () {
+              Navigator.of(ctx).pop();
+              showReportSheet(context, subject: 'this post', postId: postId);
+            }),
+            row(Icons.block_rounded, 'Block $author',
+                color: const Color(0xFFD64545), onTap: () {
+              Navigator.of(ctx).pop();
+              confirmBlock(context, ref, userId: authorId, name: author, onBlocked: () {
+                if (Navigator.of(context).canPop()) Navigator.of(context).pop();
+              });
+            }),
+            row(Icons.link_rounded, 'Copy link',
+                onTap: () => Navigator.of(ctx).pop()),
             const SizedBox(height: 12),
           ],
         ),

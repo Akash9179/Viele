@@ -12,6 +12,7 @@ String _avatar(String id) =>
 final List<FeedPost> mockFeed = [
   FeedPost(
     id: '1',
+    authorId: 'u1',
     authorName: 'Mara Liu',
     initials: 'ML',
     aesthetic: 'Quiet Luxury',
@@ -23,6 +24,7 @@ final List<FeedPost> mockFeed = [
   ),
   FeedPost(
     id: '2',
+    authorId: 'u2',
     authorName: 'Ella James',
     initials: 'EJ',
     aesthetic: 'Off-Duty',
@@ -34,6 +36,7 @@ final List<FeedPost> mockFeed = [
   ),
   FeedPost(
     id: '3',
+    authorId: 'u3',
     authorName: 'Sofia Reyes',
     initials: 'SR',
     aesthetic: 'Romantic',
@@ -45,6 +48,7 @@ final List<FeedPost> mockFeed = [
   ),
   FeedPost(
     id: '4',
+    authorId: 'u4',
     authorName: 'Anya Park',
     initials: 'AP',
     aesthetic: 'Minimal Chic',
@@ -56,6 +60,7 @@ final List<FeedPost> mockFeed = [
   ),
   FeedPost(
     id: '5',
+    authorId: 'u5',
     authorName: 'Nora Hale',
     initials: 'NH',
     aesthetic: 'Dark Academia',
@@ -67,6 +72,7 @@ final List<FeedPost> mockFeed = [
   ),
   FeedPost(
     id: '6',
+    authorId: 'u6',
     authorName: 'Jules Khan',
     initials: 'JK',
     aesthetic: 'Soft Girl',
@@ -79,12 +85,12 @@ final List<FeedPost> mockFeed = [
 ];
 
 /// Recommended-people row: top similar authors (avatar + match%).
-final List<({String name, String avatar, int pct})> mockRecommended = [
-  (name: 'Mara', avatar: _avatar('1534404483017-8743b4e935cd'), pct: 94),
-  (name: 'Ella', avatar: _avatar('1561398007-f3da3dc9d02f'), pct: 91),
-  (name: 'Sofia', avatar: _avatar('1547069553-12f23c839aaa'), pct: 88),
-  (name: 'Anya', avatar: _avatar('1589351189946-b8eb5e170ba6'), pct: 96),
-  (name: 'Jules', avatar: _avatar('1647218947427-d783309440d2'), pct: 89),
+final List<({String id, String name, String avatar, int pct})> mockRecommended = [
+  (id: 'u1', name: 'Mara', avatar: _avatar('1534404483017-8743b4e935cd'), pct: 94),
+  (id: 'u2', name: 'Ella', avatar: _avatar('1561398007-f3da3dc9d02f'), pct: 91),
+  (id: 'u3', name: 'Sofia', avatar: _avatar('1547069553-12f23c839aaa'), pct: 88),
+  (id: 'u4', name: 'Anya', avatar: _avatar('1589351189946-b8eb5e170ba6'), pct: 96),
+  (id: 'u6', name: 'Jules', avatar: _avatar('1647218947427-d783309440d2'), pct: 89),
 ];
 
 const feedChips = ['For You', 'Most Similar', 'Trending', 'Your Aesthetic'];

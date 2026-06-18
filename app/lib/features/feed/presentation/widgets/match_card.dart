@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/state/interactions.dart';
+import '../../../../core/state/session.dart';
 import '../../../../core/theme/tokens.dart';
 import '../../data/feed_post.dart';
 
@@ -50,9 +51,11 @@ class MatchCard extends ConsumerWidget {
                     right: 10,
                     child: _SaveButton(
                       saved: saved,
-                      onTap: () => ref
-                          .read(interactionsProvider.notifier)
-                          .toggleSave(post.id),
+                      onTap: () => requireAccount(context, ref, () {
+                        ref
+                            .read(interactionsProvider.notifier)
+                            .toggleSave(post.id);
+                      }),
                     ),
                   ),
                 ],

@@ -4,10 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/data/collections_repository.dart';
+import '../../../core/data/profile_repository.dart';
 import '../../../core/state/interactions.dart';
+import '../../../core/state/profile.dart';
 import '../../../core/theme/tokens.dart';
-import '../../feed/data/feed_post.dart';
-import '../../feed/data/mock_feed.dart';
 
 /// Public profile (frontend, mock): avatar + stats, public attribute chips
 /// (weight never shown), bio, Posts / Saved tabs.
@@ -19,16 +20,20 @@ class ProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
-  int _tab = 0; // 0 = Posts, 1 = Saved
-  static const _attributes = ['Hourglass', "5'6\"", 'Brown hair', 'Hazel eyes'];
+  // 0 = Posts, 1 = Saved. Debug `--dart-define=TAB=1` opens on Saved.
+  int _tab = const int.fromEnvironment('TAB');
 
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
     final saved = ref.watch(interactionsProvider).saved;
-    final List<FeedPost> posts = _tab == 0
-        ? mockFeed
-        : mockFeed.where((p) => saved.contains(p.id)).toList();
+    final p = ref.watch(profileProvider);
+    final namedCollections =
+        ref.watch(namedCollectionsProvider).asData?.value ?? const [];
+    final savedPosts = ref.watch(savedPostsProvider).asData?.value ?? const [];
+    final savedCover = savedPosts.isEmpty ? null : savedPosts.first.imageUrl;
+    final myPosts = ref.watch(myPostsProvider).asData?.value ?? const [];
+    final counts = ref.watch(followCountsProvider).asData?.value;
 
     return SafeArea(
       bottom: false,
@@ -40,9 +45,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('@mayachen', style: t.headlineSmall?.copyWith(fontSize: 16)),
+                  Text('@${p.username}',
+                      style: t.headlineSmall?.copyWith(fontSize: 16)),
                   GestureDetector(
-                    onTap: () => _openSettings(context),
+                    onTap: () => context.push('/settings'),
                     child: const Icon(Icons.settings_outlined,
                         size: 21, color: AppColors.ink),
                   ),
@@ -63,8 +69,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         color: AppColors.ring, shape: BoxShape.circle),
                     child: ClipOval(
                       child: CachedNetworkImage(
-                        imageUrl:
-                            'https://images.unsplash.com/photo-1534404483017-8743b4e935cd?w=180&h=180&fit=crop&crop=faces&q=80',
+                        imageUrl: p.avatarUrl,
                         fit: BoxFit.cover,
                         placeholder: (_, _) => const ColoredBox(color: AppColors.sand),
                       ),
@@ -75,9 +80,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
-                        _Stat(value: '${mockFeed.length}', label: 'Posts'),
-                        const _Stat(value: '1.2k', label: 'Followers'),
-                        const _Stat(value: '318', label: 'Following'),
+                        _Stat(value: '${myPosts.length}', label: 'Posts'),
+                        GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () => context.push('/connections',
+                              extra: (handle: '@${p.username}', tab: 0)),
+                          child: _Stat(
+                              value: '${counts?.followers ?? 0}',
+                              label: 'Followers'),
+                        ),
+                        GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () => context.push('/connections',
+                              extra: (handle: '@${p.username}', tab: 1)),
+                          child: _Stat(
+                              value: '${counts?.following ?? 0}',
+                              label: 'Following'),
+                        ),
                       ],
                     ),
                   ),
@@ -91,17 +110,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Maya Chen', style: t.headlineSmall),
-                  Text('Quiet Luxury · Minimal Chic', style: t.bodyMedium),
+                  Text(p.name, style: t.headlineSmall),
+                  Text(p.aesthetics, style: t.bodyMedium),
                   const SizedBox(height: 9),
                   Wrap(
                     spacing: 7,
                     runSpacing: 7,
-                    children: [for (final a in _attributes) _AttrChip(a)],
+                    children: [for (final a in p.attributeChips) _AttrChip(a)],
                   ),
                   const SizedBox(height: 11),
                   Text(
-                    'Soft neutrals, clean lines, the occasional trench. Saving looks for fall.',
+                    p.bio,
                     style: t.bodyLarge?.copyWith(
                         fontSize: 13.5, height: 1.45, color: const Color(0xFF3D362B)),
                   ),
@@ -110,7 +129,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     children: [
                       Expanded(
                         child: GestureDetector(
-                          onTap: () => _openEditProfile(context),
+                          onTap: () => context.push('/edit-profile'),
                           child: Container(
                             height: 42,
                             alignment: Alignment.center,
@@ -148,47 +167,79 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               onTap: (i) => setState(() => _tab = i),
             ),
           ),
-          if (posts.isEmpty)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 60, 20, 0),
-                child: Column(
-                  children: [
-                    const Icon(Icons.bookmark_border_rounded,
-                        size: 38, color: AppColors.ink3),
-                    const SizedBox(height: 12),
-                    Text('Nothing saved yet',
-                        style: t.titleLarge?.copyWith(fontSize: 18)),
-                    const SizedBox(height: 4),
-                    Text('Tap the bookmark on any outfit to keep it here.',
-                        textAlign: TextAlign.center,
-                        style: t.bodyLarge?.copyWith(color: AppColors.ink2)),
-                  ],
+          if (_tab == 0)
+            if (myPosts.isEmpty)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 56, 20, 0),
+                  child: Column(
+                    children: [
+                      const Icon(Icons.grid_view_rounded,
+                          size: 36, color: AppColors.ink3),
+                      const SizedBox(height: 12),
+                      Text('No posts yet',
+                          style: t.titleLarge?.copyWith(fontSize: 18)),
+                      const SizedBox(height: 4),
+                      Text('Share a look from the ＋ tab — it shows up here.',
+                          textAlign: TextAlign.center,
+                          style: t.bodyLarge?.copyWith(color: AppColors.ink2)),
+                    ],
+                  ),
                 ),
-              ),
-            )
-          else
-            SliverPadding(
-              padding: const EdgeInsets.all(3),
-              sliver: SliverMasonryGrid.count(
-                crossAxisCount: 3,
-                mainAxisSpacing: 3,
-                crossAxisSpacing: 3,
-                childCount: posts.length,
-                itemBuilder: (context, i) => GestureDetector(
-                  onTap: () => context.push('/outfit', extra: posts[i]),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: AspectRatio(
-                      aspectRatio: 3 / 4,
-                      child: CachedNetworkImage(
-                        imageUrl: posts[i].imageUrl,
-                        fit: BoxFit.cover,
-                        placeholder: (_, _) => const ColoredBox(color: AppColors.sand),
+              )
+            else
+              SliverPadding(
+                padding: const EdgeInsets.all(3),
+                sliver: SliverMasonryGrid.count(
+                  crossAxisCount: 3,
+                  mainAxisSpacing: 3,
+                  crossAxisSpacing: 3,
+                  childCount: myPosts.length,
+                  itemBuilder: (context, i) => GestureDetector(
+                    onTap: () => context.push('/outfit', extra: myPosts[i]),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: AspectRatio(
+                        aspectRatio: 3 / 4,
+                        child: CachedNetworkImage(
+                          imageUrl: myPosts[i].imageUrl,
+                          fit: BoxFit.cover,
+                          placeholder: (_, _) =>
+                              const ColoredBox(color: AppColors.sand),
+                          errorWidget: (_, _, _) =>
+                              const ColoredBox(color: AppColors.taupe),
+                        ),
                       ),
                     ),
                   ),
                 ),
+              )
+          else
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+              sliver: SliverGrid.count(
+                crossAxisCount: 2,
+                mainAxisSpacing: 12,
+                crossAxisSpacing: 12,
+                childAspectRatio: 0.82,
+                children: [
+                  _CollectionCard(
+                    title: 'All saved',
+                    count: saved.length,
+                    coverUrl: savedCover,
+                    onTap: () => context.push('/collection',
+                        extra: (name: 'All saved', collectionId: null)),
+                  ),
+                  for (final c in namedCollections)
+                    _CollectionCard(
+                      title: c.name,
+                      count: c.count,
+                      coverUrl: c.coverUrl,
+                      onTap: () => context.push('/collection',
+                          extra: (name: c.name, collectionId: c.id)),
+                    ),
+                  _NewCollectionCard(onTap: () => _newCollection(context, ref)),
+                ],
               ),
             ),
         ],
@@ -283,45 +334,119 @@ class _Tabs extends StatelessWidget {
   }
 }
 
-void _openSettings(BuildContext context) {
-  showModalBottomSheet<void>(
-    context: context,
-    backgroundColor: AppColors.canvas,
-    shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadii.sheet))),
-    builder: (ctx) {
-      final t = Theme.of(ctx).textTheme;
-      Widget row(IconData icon, String label, {Color? color}) => ListTile(
-            leading: Icon(icon, size: 21, color: color ?? AppColors.ink),
-            title: Text(label, style: t.bodyLarge?.copyWith(color: color ?? AppColors.ink)),
-            trailing: const Icon(Icons.chevron_right_rounded, color: AppColors.ink3),
-            onTap: () => Navigator.of(ctx).pop(),
-          );
-      return SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 8),
-            Container(
-                width: 40,
-                height: 5,
-                decoration: BoxDecoration(
-                    color: AppColors.ink3, borderRadius: BorderRadius.circular(3))),
-            const SizedBox(height: 6),
-            row(Icons.person_outline_rounded, 'Account'),
-            row(Icons.lock_outline_rounded, 'Privacy & data'),
-            row(Icons.notifications_none_rounded, 'Notifications'),
-            row(Icons.help_outline_rounded, 'Help & guidelines'),
-            row(Icons.logout_rounded, 'Sign out', color: const Color(0xFFD64545)),
-            const SizedBox(height: 12),
-          ],
+
+class _CollectionCard extends StatelessWidget {
+  const _CollectionCard({
+    required this.title,
+    required this.count,
+    required this.coverUrl,
+    required this.onTap,
+  });
+  final String title;
+  final int count;
+  final String? coverUrl;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
+          borderRadius: BorderRadius.all(Radius.circular(16)),
+          boxShadow: AppShadows.soft,
         ),
-      );
-    },
-  );
+        child: ClipRRect(
+          borderRadius: const BorderRadius.all(Radius.circular(16)),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (coverUrl != null)
+                CachedNetworkImage(
+                  imageUrl: coverUrl!,
+                  fit: BoxFit.cover,
+                  placeholder: (_, _) => const ColoredBox(color: AppColors.sand),
+                )
+              else
+                const ColoredBox(
+                  color: AppColors.sand,
+                  child: Center(
+                      child: Icon(Icons.bookmark_border_rounded,
+                          size: 30, color: AppColors.ink3)),
+                ),
+              const DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.center,
+                    colors: [Color(0xCC160F08), Color(0x00160F08)],
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 12,
+                right: 12,
+                bottom: 11,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontFamily: AppFonts.display,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white)),
+                    Text('$count ${count == 1 ? "look" : "looks"}',
+                        style: TextStyle(
+                            fontFamily: AppFonts.text,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.white.withValues(alpha: 0.85))),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
-void _openEditProfile(BuildContext context) {
+class _NewCollectionCard extends StatelessWidget {
+  const _NewCollectionCard({required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
+    return GestureDetector(
+      onTap: onTap,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: AppColors.paper,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.ink3, width: 1.4),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.add_rounded, size: 26, color: AppColors.ink2),
+            const SizedBox(height: 6),
+            Text('New collection',
+                style: t.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600, color: AppColors.ink2)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+void _newCollection(BuildContext context, WidgetRef ref) {
+  final ctl = TextEditingController();
   showModalBottomSheet<void>(
     context: context,
     backgroundColor: AppColors.canvas,
@@ -330,68 +455,76 @@ void _openEditProfile(BuildContext context) {
         borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadii.sheet))),
     builder: (ctx) {
       final t = Theme.of(ctx).textTheme;
-      Widget field(String label, String value, {bool priv = false}) => Padding(
-            padding: const EdgeInsets.only(bottom: 12),
+      return Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(ctx).bottom),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(22, 10, 22, 22),
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                  Text(label.toUpperCase(), style: t.labelSmall),
-                  Text(priv ? 'Private' : 'Public',
-                      style: t.bodySmall?.copyWith(
-                          color: priv ? AppColors.ink2 : AppColors.matchDark,
-                          fontWeight: FontWeight.w600)),
-                ]),
-                const SizedBox(height: 6),
+                Center(
+                  child: Container(
+                      width: 40,
+                      height: 5,
+                      decoration: BoxDecoration(
+                          color: AppColors.ink3,
+                          borderRadius: BorderRadius.circular(3))),
+                ),
+                const SizedBox(height: 14),
+                Text('New collection',
+                    style: t.headlineSmall?.copyWith(fontSize: 20)),
+                const SizedBox(height: 14),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                   decoration: BoxDecoration(
                       color: AppColors.paper,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: AppColors.line)),
-                  child: Text(value, style: t.bodyLarge),
+                  child: TextField(
+                    controller: ctl,
+                    autofocus: true,
+                    style: t.bodyLarge,
+                    decoration: InputDecoration(
+                      isCollapsed: true,
+                      border: InputBorder.none,
+                      hintText: 'e.g. Fall layers',
+                      hintStyle: t.bodyLarge?.copyWith(color: AppColors.ink3),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                GestureDetector(
+                  onTap: () async {
+                    final name = ctl.text.trim();
+                    if (name.isNotEmpty) {
+                      await ref
+                          .read(collectionsRepositoryProvider)
+                          .createCollection(name);
+                      ref.invalidate(namedCollectionsProvider);
+                    }
+                    if (ctx.mounted) Navigator.of(ctx).pop();
+                  },
+                  child: Container(
+                    height: 52,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                        color: AppColors.ink,
+                        borderRadius: BorderRadius.circular(14)),
+                    child: Text('Create',
+                        style: t.labelLarge?.copyWith(
+                            color: AppColors.onInk,
+                            fontWeight: FontWeight.w700)),
+                  ),
                 ),
               ],
             ),
-          );
-      return SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(22, 8, 22, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                    width: 40,
-                    height: 5,
-                    decoration: BoxDecoration(
-                        color: AppColors.ink3, borderRadius: BorderRadius.circular(3))),
-              ),
-              const SizedBox(height: 14),
-              Text('Edit profile', style: t.headlineSmall?.copyWith(fontSize: 20)),
-              const SizedBox(height: 16),
-              field('Name', 'Maya Chen'),
-              field('Bio', 'Soft neutrals, clean lines, the occasional trench.'),
-              field('Height', "5'6\""),
-              field('Weight', 'Not shown', priv: true),
-              const SizedBox(height: 6),
-              GestureDetector(
-                onTap: () => Navigator.of(ctx).pop(),
-                child: Container(
-                  height: 50,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                      color: AppColors.ink, borderRadius: BorderRadius.circular(14)),
-                  child: Text('Save changes',
-                      style: t.labelLarge?.copyWith(
-                          color: AppColors.onInk, fontWeight: FontWeight.w700)),
-                ),
-              ),
-            ],
           ),
         ),
       );
     },
   );
 }
+

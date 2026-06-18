@@ -1,45 +1,66 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/data/profile_repository.dart';
+import '../../../core/state/onboarding_draft.dart';
+import '../../../core/state/session.dart';
 import '../../../core/theme/tokens.dart';
 import '../../feed/data/mock_feed.dart';
 import '../data/onboarding_data.dart';
+import 'email_auth_sheet.dart';
 import 'widgets/silhouette_icon.dart';
 
 /// The value-first onboarding flow (frontend-only; selections held in memory).
-/// teaser (body chart → aesthetics → silhouette → skin tone) → wow feed →
-/// account → basics → finish profile. See `docs/superpowers/specs/2026-06-09-
-/// onboarding-flow-design.md` + `docs/brand.md` (inclusivity ethos).
-class OnboardingFlow extends StatefulWidget {
+/// Just the teaser: body chart → aesthetics → silhouette → height → weight →
+/// skin tone → undertone → drop straight into the live feed (no account).
+/// Signing up is deferred to the first save/post — see [SignupFlow]. Refs:
+/// `docs/superpowers/specs/2026-06-09-onboarding-flow-design.md` + `docs/brand.md`.
+class OnboardingFlow extends ConsumerStatefulWidget {
   const OnboardingFlow({super.key});
 
   @override
-  State<OnboardingFlow> createState() => _OnboardingFlowState();
+  ConsumerState<OnboardingFlow> createState() => _OnboardingFlowState();
 }
 
 /// Debug-only: jump to a step for screenshots (`--dart-define=START=n`).
 const _kStartStep = int.fromEnvironment('START');
 
-class _OnboardingFlowState extends State<OnboardingFlow> {
+class _OnboardingFlowState extends ConsumerState<OnboardingFlow> {
   late final _page = PageController(initialPage: _kStartStep);
   int _index = _kStartStep;
 
-  // Selections (in-memory only).
+  // Selections (in-memory only). The not-logged-in setup steps start unset so
+  // people make a real choice — no skip, no implicit default (feedback 2026-06-16).
   BodyTypeSet _bodyType = BodyTypeSet.women;
   final Set<String> _aesthetics = {'Quiet Luxury', 'Off-Duty', 'Dark Academia'};
-  SilhouetteShape? _silhouette = SilhouetteShape.hourglass;
-  int? _skinTone = 3;
-  Undertone? _undertone = Undertone.neutral;
-  String _hair = 'Brown';
-  String _eye = 'Hazel';
-  String _height = "5'6\"";
-
-  static const _last = 9;
+  SilhouetteShape? _silhouette;
+  int? _skinTone;
+  Undertone? _undertone;
+  // Height (public) + weight (private, match-only) — collected in setup. Weight
+  // is required here but never shown publicly (see docs/memory.md 2026-06-16).
+  int _heightFeet = 5;
+  int _heightInches = 6;
+  int _weightLb = 150;
+  static const _last = 7;
 
   void _next() {
     if (_index >= _last) {
+      // Snapshot the anonymous teaser answers so they migrate into the profile
+      // when/if the user creates an account later (SignupFlow reads this).
+      ref.read(onboardingDraftProvider.notifier).set(OnboardingDraft(
+            bodyType: _bodyType,
+            aesthetics: _aesthetics.toList(),
+            silhouette: _silhouette,
+            skinToneIndex: _skinTone,
+            undertone: _undertone,
+            heightFeet: _heightFeet,
+            heightInches: _heightInches,
+            weightLb: _weightLb,
+          ));
       context.go('/home');
       return;
     }
@@ -68,7 +89,13 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
         controller: _page,
         physics: const NeverScrollableScrollPhysics(),
         children: [
-          _Welcome(onStart: _next, onHaveAccount: () => context.go('/home')),
+          _Welcome(
+            onStart: _next,
+            onHaveAccount: () async {
+              final ok = await showEmailAuth(context, ref, signUp: false);
+              if (ok == true && context.mounted) context.go('/home');
+            },
+          ),
           _Teaser(
             step: 1,
             title: 'Which body chart fits you?',
@@ -99,14 +126,13 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           ),
           _Teaser(
             step: 3,
-            eyebrow: 'Your shape · optional',
+            eyebrow: 'Your shape',
             title: 'Which feels closest?',
             subtitle:
-                'No better or worse — every shape is welcome. Tap the one that feels right, or skip.',
-            reassure: 'Used only to match you. Change or remove it anytime.',
-            onContinue: _next,
+                'No better or worse — every shape is welcome. Tap the one that feels right.',
+            reassure: 'Used only to match you. Change it anytime.',
+            onContinue: _silhouette != null ? _next : null,
             onBack: _back,
-            onSkip: _next,
             child: _SilhouetteGrid(
               value: _silhouette,
               onChanged: (v) => setState(() => _silhouette = v),
@@ -114,47 +140,61 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
           ),
           _Teaser(
             step: 4,
-            eyebrow: 'Your coloring · optional',
+            eyebrow: 'Your measurements',
+            title: 'How tall are you?',
+            subtitle: 'Helps us put outfits on people built like you.',
+            onContinue: _next,
+            onBack: _back,
+            child: _HeightWheel(
+              feet: _heightFeet,
+              inches: _heightInches,
+              onChanged: (f, i) => setState(() {
+                _heightFeet = f;
+                _heightInches = i;
+              }),
+            ),
+          ),
+          _Teaser(
+            step: 5,
+            eyebrow: 'Your measurements',
+            title: 'And your weight?',
+            subtitle: 'Used only to sharpen your matches.',
+            reassure: 'Private — matching only. Never shown on your profile.',
+            onContinue: _next,
+            onBack: _back,
+            child: _WeightWheel(
+              lb: _weightLb,
+              onChanged: (v) => setState(() => _weightLb = v),
+            ),
+          ),
+          _Teaser(
+            step: 6,
+            eyebrow: 'Your coloring',
             title: 'What\'s your skin tone?',
             subtitle:
                 'Tap the closest — we match on closeness, never an exact value, so there\'s no wrong answer.',
             reassure: 'Tip: hold it next to your jaw or inner wrist in natural light.',
-            onContinue: _next,
+            onContinue: _skinTone != null ? _next : null,
             onBack: _back,
-            onSkip: _next,
             child: _SkinToneRow(
               value: _skinTone,
               onChanged: (v) => setState(() => _skinTone = v),
             ),
           ),
           _Teaser(
-            step: 5,
-            eyebrow: 'Your coloring · optional',
+            step: 7,
+            eyebrow: 'Your coloring',
             title: 'And your undertone?',
             subtitle:
                 'The other half of a good color match — it\'s why people at the same depth suit different palettes.',
             reassure: 'Check your inner-wrist veins: greenish leans warm, bluish leans cool.',
             ctaLabel: 'See my feed →',
-            onContinue: _next,
+            onContinue: _undertone != null ? _next : null,
             onBack: _back,
-            onSkip: _next,
             child: _UndertoneChoice(
               value: _undertone,
               onChanged: (v) => setState(() => _undertone = v),
             ),
-          ),
-          _Wow(onContinue: _next),
-          _Account(onContinue: _next),
-          _Basics(onContinue: _next),
-          _Finish(
-            height: _height,
-            hair: _hair,
-            eye: _eye,
-            onHeight: (v) => setState(() => _height = v),
-            onHair: (v) => setState(() => _hair = v),
-            onEye: (v) => setState(() => _eye = v),
-            onDone: () => context.go('/home'),
-            onSkip: () => context.go('/home'),
           ),
         ],
       ),
@@ -200,14 +240,15 @@ class _PrimaryButton extends StatelessWidget {
 
 class _Progress extends StatelessWidget {
   const _Progress({required this.step});
-  final int step; // 1..5
+  final int step; // 1..7
+  static const _total = 7;
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(AppSpacing.s24, 8, AppSpacing.s24, 0),
       child: Row(
         children: [
-          for (var i = 1; i <= 5; i++) ...[
+          for (var i = 1; i <= _total; i++) ...[
             if (i > 1) const SizedBox(width: 5),
             Expanded(
               child: Container(
@@ -237,7 +278,6 @@ class _Teaser extends StatelessWidget {
     this.eyebrow,
     this.reassure,
     this.ctaLabel = 'Continue',
-    this.onSkip,
   });
 
   final int step;
@@ -249,7 +289,6 @@ class _Teaser extends StatelessWidget {
   final Widget child;
   final VoidCallback? onContinue;
   final VoidCallback onBack;
-  final VoidCallback? onSkip;
 
   @override
   Widget build(BuildContext context) {
@@ -258,25 +297,13 @@ class _Teaser extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              IconButton(
-                onPressed: onBack,
-                icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                    size: 18, color: AppColors.ink),
-              ),
-              if (onSkip != null)
-                Padding(
-                  padding: const EdgeInsets.only(right: AppSpacing.s16),
-                  child: GestureDetector(
-                    onTap: onSkip,
-                    child: Text('Skip',
-                        style: t.bodyLarge?.copyWith(
-                            color: AppColors.ink2, fontWeight: FontWeight.w600)),
-                  ),
-                ),
-            ],
+          Align(
+            alignment: Alignment.centerLeft,
+            child: IconButton(
+              onPressed: onBack,
+              icon: const Icon(Icons.arrow_back_ios_new_rounded,
+                  size: 18, color: AppColors.ink),
+            ),
           ),
           _Progress(step: step),
           Padding(
@@ -686,7 +713,6 @@ class _UndertoneChoice extends StatelessWidget {
     Undertone.warm: [Color(0xFFE7C9A0), Color(0xFFD8A56A)],
     Undertone.cool: [Color(0xFFCBD4DE), Color(0xFFA9B7C6)],
     Undertone.neutral: [Color(0xFFE0D6C4), Color(0xFFBFC2BE)],
-    Undertone.notSure: [Color(0xFFE6DCC8), Color(0xFFE6DCC8)],
   };
 
   @override
@@ -749,115 +775,150 @@ class _UndertoneChoice extends StatelessWidget {
   }
 }
 
-class _Wow extends StatelessWidget {
-  const _Wow({required this.onContinue});
-  final VoidCallback onContinue;
+/// Account creation, shown when a guest tries to save or post (pushed as the
+/// `/signup` route). Reuses the [_Account] → [_Basics] → [_Finish] screens.
+/// Choosing a provider flips [sessionProvider]; the caller then completes the
+/// pending action (e.g. applies the save the guest just tapped).
+class SignupFlow extends ConsumerStatefulWidget {
+  const SignupFlow({super.key});
+
+  @override
+  ConsumerState<SignupFlow> createState() => _SignupFlowState();
+}
+
+class _SignupFlowState extends ConsumerState<SignupFlow> {
+  final _page = PageController();
+  int _index = 0;
+  final _name = TextEditingController();
+  final _username = TextEditingController();
+  final _region = TextEditingController();
+  String _hair = 'Brown';
+  String _eye = 'Hazel';
+  bool _saving = false;
+
+  static const _last = 2;
+  bool _debugAuthShown = false;
+
+  void _next() {
+    if (_index >= _last) {
+      _complete();
+      return;
+    }
+    // Leaving Basics (step 1) requires a username.
+    if (_index == 1 && _username.text.trim().isEmpty) {
+      _toast('Pick a username to continue.');
+      return;
+    }
+    setState(() => _index++);
+    _page.animateToPage(_index,
+        duration: const Duration(milliseconds: 300), curve: Curves.easeOutCubic);
+  }
+
+  /// Email tapped → real Supabase auth sheet. On success continue to basics.
+  Future<void> _emailSignup() async {
+    final ok = await showEmailAuth(context, ref, signUp: true);
+    if (ok == true && mounted) _next();
+  }
+
+  /// Google/Apple aren't configured yet (need provider + native setup).
+  void _oauthSoon() {
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: AppColors.ink,
+      content: Text('Apple & Google sign-in are coming soon — use email for now.'),
+    ));
+  }
+
+  void _toast(String msg) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: AppColors.ink,
+        content: Text(msg),
+      ));
+
+  /// Finish: persist the profile (teaser draft + signup fields) then close so
+  /// the pending save/post can complete. Skips creation if a profile already
+  /// exists (e.g. an existing user signed in via the sheet).
+  Future<void> _complete() async {
+    if (_saving) return;
+    final username = _username.text.trim();
+    if (username.isEmpty) {
+      _toast('Pick a username to continue.');
+      return;
+    }
+    setState(() => _saving = true);
+    final repo = ref.read(profileRepositoryProvider);
+    try {
+      if (!await repo.currentUserHasProfile()) {
+        await repo.createFromDraft(
+          draft: ref.read(onboardingDraftProvider),
+          username: username,
+          displayName: _name.text.trim().isEmpty ? username : _name.text.trim(),
+          region: _region.text.trim(),
+          hairColor: _hair,
+          eyeColor: _eye,
+        );
+      }
+      if (mounted) _close();
+    } on PostgrestException catch (e) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      _toast(e.code == '23505'
+          ? 'That username is taken — try another.'
+          : "Couldn't save your profile. Please try again.");
+      if (_index != 1) {
+        setState(() => _index = 1);
+        _page.jumpToPage(1);
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      _toast("Couldn't save your profile. Please try again.");
+    }
+  }
+
+  void _close() {
+    if (context.canPop()) context.pop();
+  }
+
+  @override
+  void dispose() {
+    _page.dispose();
+    _name.dispose();
+    _username.dispose();
+    _region.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final t = Theme.of(context).textTheme;
-    return SafeArea(
-      child: Stack(
+    // Debug-only: `--dart-define=AUTH=email` auto-opens the email sheet for
+    // screenshots.
+    if (const String.fromEnvironment('AUTH') == 'email' && !_debugAuthShown) {
+      _debugAuthShown = true;
+      Future.delayed(const Duration(milliseconds: 400), () {
+        if (context.mounted) showEmailAuth(context, ref, signUp: true);
+      });
+    }
+    return Scaffold(
+      body: PageView(
+        controller: _page,
+        physics: const NeverScrollableScrollPhysics(),
         children: [
-          CustomScrollView(
-            slivers: [
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(AppSpacing.s20, 12, AppSpacing.s20, 6),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('CURATED FOR YOU',
-                          style: t.labelSmall?.copyWith(letterSpacing: 1.8)),
-                      const SizedBox(height: 3),
-                      Text('Outfits on people like you', style: t.titleLarge),
-                    ],
-                  ),
-                ),
-              ),
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(AppSpacing.s20, 10, AppSpacing.s20, 100),
-                sliver: SliverGrid.count(
-                  crossAxisCount: 2,
-                  mainAxisSpacing: 10,
-                  crossAxisSpacing: 10,
-                  childAspectRatio: 0.7,
-                  children: [
-                    for (final p in mockFeed.take(4))
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            CachedNetworkImage(
-                                imageUrl: p.imageUrl,
-                                fit: BoxFit.cover,
-                                placeholder: (_, _) =>
-                                    const ColoredBox(color: AppColors.sand)),
-                            Positioned(
-                              top: 8,
-                              left: 8,
-                              child: Container(
-                                padding: const EdgeInsets.fromLTRB(7, 3, 9, 3),
-                                decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.95),
-                                    borderRadius: BorderRadius.circular(999)),
-                                child: Text('${p.matchPct}%',
-                                    style: const TextStyle(
-                                        fontFamily: AppFonts.text,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w700,
-                                        color: AppColors.ink)),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ],
+          _Account(onEmail: _emailSignup, onOAuth: _oauthSoon, onClose: _close),
+          _Basics(
+            name: _name,
+            username: _username,
+            region: _region,
+            onContinue: _next,
           ),
-          Positioned(
-            left: 16,
-            right: 16,
-            bottom: 20,
-            child: GestureDetector(
-              onTap: onContinue,
-              child: Container(
-                padding: const EdgeInsets.all(13),
-                decoration: BoxDecoration(
-                    color: AppColors.ink, borderRadius: BorderRadius.circular(16)),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 30,
-                      height: 30,
-                      decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.16),
-                          shape: BoxShape.circle),
-                      child: const Icon(Icons.bookmark_border_rounded,
-                          size: 16, color: Colors.white),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Tap a look to save it',
-                              style: t.bodyLarge?.copyWith(
-                                  color: AppColors.onInk,
-                                  fontWeight: FontWeight.w600)),
-                          Text('Free — no account needed yet',
-                              style: t.bodySmall?.copyWith(
-                                  color: const Color(0xB3F6F1E8))),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+          _Finish(
+            hair: _hair,
+            eye: _eye,
+            saving: _saving,
+            onHair: (v) => setState(() => _hair = v),
+            onEye: (v) => setState(() => _eye = v),
+            onDone: _complete,
+            onSkip: _complete,
           ),
         ],
       ),
@@ -866,8 +927,11 @@ class _Wow extends StatelessWidget {
 }
 
 class _Account extends StatelessWidget {
-  const _Account({required this.onContinue});
-  final VoidCallback onContinue;
+  const _Account(
+      {required this.onEmail, required this.onOAuth, this.onClose});
+  final VoidCallback onEmail;
+  final VoidCallback onOAuth;
+  final VoidCallback? onClose;
 
   @override
   Widget build(BuildContext context) {
@@ -876,9 +940,10 @@ class _Account extends StatelessWidget {
     final col0 = [imgs[0], imgs[3], imgs[1]];
     final col1 = [imgs[4], imgs[2], imgs[5]];
     final col2 = [imgs[2], imgs[0], imgs[4]];
-    Widget btn(String label, Color bg, Color fg, {IconData? icon, Border? border}) {
+    Widget btn(String label, Color bg, Color fg,
+        {IconData? icon, Border? border, required VoidCallback onTap}) {
       return GestureDetector(
-        onTap: onContinue,
+        onTap: onTap,
         child: Container(
           height: 52,
           margin: const EdgeInsets.only(bottom: 10),
@@ -907,6 +972,15 @@ class _Account extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (onClose != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: GestureDetector(
+                  onTap: onClose,
+                  child: const Icon(Icons.close_rounded,
+                      size: 24, color: AppColors.ink2),
+                ),
+              ),
             Text('KEEP YOUR STYLE', style: t.labelSmall?.copyWith(letterSpacing: 1.8)),
             const SizedBox(height: 8),
             Text('Save your looks,\nkeep your matches',
@@ -948,12 +1022,15 @@ class _Account extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            btn('Continue with Apple', Colors.black, Colors.white, icon: Icons.apple),
+            btn('Continue with Apple', Colors.black, Colors.white,
+                icon: Icons.apple, onTap: onOAuth),
             btn('Continue with Google', Colors.white, const Color(0xFF1F1F1F),
                 icon: Icons.g_mobiledata_rounded,
-                border: Border.all(color: AppColors.line)),
+                border: Border.all(color: AppColors.line),
+                onTap: onOAuth),
             btn('Sign up with email', AppColors.canvas, AppColors.ink,
-                border: Border.all(color: AppColors.ink, width: 1.5)),
+                border: Border.all(color: AppColors.ink, width: 1.5),
+                onTap: onEmail),
             const SizedBox(height: 4),
             Center(
               child: Text.rich(
@@ -1056,7 +1133,13 @@ class _MarqueeColumnState extends State<_MarqueeColumn>
 }
 
 class _Basics extends StatelessWidget {
-  const _Basics({required this.onContinue});
+  const _Basics({
+    required this.name,
+    required this.username,
+    required this.region,
+    required this.onContinue,
+  });
+  final TextEditingController name, username, region;
   final VoidCallback onContinue;
 
   @override
@@ -1067,29 +1150,81 @@ class _Basics extends StatelessWidget {
       onCta: onContinue,
       ctaLabel: 'Continue',
       children: [
-        _ReadonlyField(label: 'Name', tag: _Tag.public, value: 'Maya Chen'),
-        _ReadonlyField(
-            label: 'Username', tag: _Tag.public, value: '@mayachen', trailingOk: true),
-        _ReadonlyField(label: 'Region', tag: _Tag.public, value: 'Select (optional)', muted: true),
+        _InputField(label: 'Name', controller: name, hint: 'Your name'),
+        _InputField(
+            label: 'Username', controller: username, hint: 'username', prefix: '@'),
+        _InputField(
+            label: 'Region', controller: region, hint: 'Add your region (optional)'),
       ],
+    );
+  }
+}
+
+class _InputField extends StatelessWidget {
+  const _InputField(
+      {required this.label, required this.controller, this.hint, this.prefix});
+  final String label;
+  final TextEditingController controller;
+  final String? hint;
+  final String? prefix;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 13),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _FieldLabel(label: label),
+          const SizedBox(height: 6),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+                color: AppColors.paper,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.line)),
+            child: Row(
+              children: [
+                if (prefix != null)
+                  Text(prefix!,
+                      style: t.bodyLarge?.copyWith(color: AppColors.ink2)),
+                Expanded(
+                  child: TextField(
+                    controller: controller,
+                    autocorrect: false,
+                    style: t.bodyLarge,
+                    decoration: InputDecoration(
+                      isCollapsed: true,
+                      border: InputBorder.none,
+                      hintText: hint,
+                      hintStyle: t.bodyLarge?.copyWith(color: AppColors.ink3),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
 class _Finish extends StatelessWidget {
   const _Finish({
-    required this.height,
     required this.hair,
     required this.eye,
-    required this.onHeight,
+    required this.saving,
     required this.onHair,
     required this.onEye,
     required this.onDone,
     required this.onSkip,
   });
 
-  final String height, hair, eye;
-  final ValueChanged<String> onHeight, onHair, onEye;
+  final String hair, eye;
+  final bool saving;
+  final ValueChanged<String> onHair, onEye;
   final VoidCallback onDone, onSkip;
 
   @override
@@ -1098,36 +1233,25 @@ class _Finish extends StatelessWidget {
       eyebrow: 'A FEW MORE · SHARPENS MATCHES',
       title: 'Finish your profile',
       onCta: onDone,
-      ctaLabel: 'Done',
-      onSkip: onSkip,
+      ctaLabel: saving ? 'Saving…' : 'Done',
+      onSkip: saving ? null : onSkip,
       children: [
         _TapField(
-            label: 'Height',
-            tag: _Tag.public,
-            value: height,
-            onTap: () => _openHeightWheel(context, height, onHeight)),
-        _TapField(
             label: 'Hair',
-            tag: _Tag.public,
             value: hair,
             swatch: hairColors.firstWhere((c) => c.name == hair).swatch,
             onTap: () => _openColorList(context, 'Hair color', hairColors, hair, onHair)),
         _TapField(
             label: 'Eyes',
-            tag: _Tag.public,
             value: eye,
             swatch: eyeColors.firstWhere((c) => c.name == eye).swatch,
             onTap: () => _openColorList(context, 'Eye color', eyeColors, eye, onEye)),
-        _ReadonlyField(
-            label: 'Weight', tag: _Tag.private, value: 'Add (optional)', muted: true),
       ],
     );
   }
 }
 
 // ── Field scaffolding ──────────────────────────────────────────────────────
-
-enum _Tag { public, private }
 
 class _FieldsScaffold extends StatelessWidget {
   const _FieldsScaffold({
@@ -1193,13 +1317,11 @@ class _FieldsScaffold extends StatelessWidget {
 }
 
 class _FieldLabel extends StatelessWidget {
-  const _FieldLabel({required this.label, required this.tag});
+  const _FieldLabel({required this.label});
   final String label;
-  final _Tag tag;
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
-    final pub = tag == _Tag.public;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -1208,69 +1330,16 @@ class _FieldLabel extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
           decoration: BoxDecoration(
-              color: pub ? const Color(0xFFE7F2EA) : AppColors.sand,
+              color: const Color(0xFFE7F2EA),
               borderRadius: BorderRadius.circular(6)),
-          child: Text(pub ? 'Public' : 'Private · match only',
+          child: const Text('Public',
               style: TextStyle(
                   fontFamily: AppFonts.text,
                   fontSize: 9.5,
                   fontWeight: FontWeight.w600,
-                  color: pub ? AppColors.matchDark : AppColors.ink2)),
+                  color: AppColors.matchDark)),
         ),
       ],
-    );
-  }
-}
-
-class _ReadonlyField extends StatelessWidget {
-  const _ReadonlyField({
-    required this.label,
-    required this.tag,
-    required this.value,
-    this.muted = false,
-    this.trailingOk = false,
-  });
-  final String label, value;
-  final _Tag tag;
-  final bool muted, trailingOk;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = Theme.of(context).textTheme;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 13),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _FieldLabel(label: label, tag: tag),
-          const SizedBox(height: 6),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-            decoration: BoxDecoration(
-                color: AppColors.paper,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.line)),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(value,
-                      style: t.bodyLarge?.copyWith(
-                          color: muted ? AppColors.ink3 : AppColors.ink)),
-                ),
-                if (trailingOk)
-                  const Text('✓ available',
-                      style: TextStyle(
-                          fontFamily: AppFonts.text,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.match))
-                else if (muted)
-                  const Icon(Icons.chevron_right_rounded, color: AppColors.ink3),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -1278,13 +1347,11 @@ class _ReadonlyField extends StatelessWidget {
 class _TapField extends StatelessWidget {
   const _TapField({
     required this.label,
-    required this.tag,
     required this.value,
     required this.onTap,
     this.swatch,
   });
   final String label, value;
-  final _Tag tag;
   final VoidCallback onTap;
   final Color? swatch;
 
@@ -1296,7 +1363,7 @@ class _TapField extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _FieldLabel(label: label, tag: tag),
+          _FieldLabel(label: label),
           const SizedBox(height: 6),
           GestureDetector(
             onTap: onTap,
@@ -1328,72 +1395,126 @@ class _TapField extends StatelessWidget {
   }
 }
 
-// ── Pickers (native iOS controls) ───────────────────────────────────────────
+// ── Inline measurement wheels (native iOS pickers) ──────────────────────────
 
-void _openHeightWheel(BuildContext context, String current, ValueChanged<String> onPick) {
-  var feet = 5;
-  var inches = 6;
-  showModalBottomSheet<void>(
-    context: context,
-    backgroundColor: AppColors.canvas,
-    shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadii.sheet))),
-    builder: (ctx) {
-      final t = Theme.of(ctx).textTheme;
-      return SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(AppSpacing.s24, 10, AppSpacing.s24, AppSpacing.s24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                    width: 40,
-                    height: 5,
-                    decoration: BoxDecoration(
-                        color: AppColors.ink3, borderRadius: BorderRadius.circular(3))),
+/// Height as feet + inches. Stateful so the scroll controllers persist across
+/// parent rebuilds (avoids the wheel snapping back mid-scroll).
+class _HeightWheel extends StatefulWidget {
+  const _HeightWheel({
+    required this.feet,
+    required this.inches,
+    required this.onChanged,
+  });
+  final int feet, inches;
+  final void Function(int feet, int inches) onChanged;
+
+  @override
+  State<_HeightWheel> createState() => _HeightWheelState();
+}
+
+class _HeightWheelState extends State<_HeightWheel> {
+  late int _feet = widget.feet;
+  late int _inches = widget.inches;
+  late final _ftCtl = FixedExtentScrollController(initialItem: _feet - 4);
+  late final _inCtl = FixedExtentScrollController(initialItem: _inches);
+
+  @override
+  void dispose() {
+    _ftCtl.dispose();
+    _inCtl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
+    final style = t.titleLarge?.copyWith(fontWeight: FontWeight.w600);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.s24, 12, AppSpacing.s24, 0),
+      child: SizedBox(
+        height: 196,
+        child: Row(
+          children: [
+            Expanded(
+              child: CupertinoPicker(
+                scrollController: _ftCtl,
+                itemExtent: 42,
+                onSelectedItemChanged: (i) {
+                  _feet = 4 + i;
+                  widget.onChanged(_feet, _inches);
+                },
+                children: [
+                  for (var f = 4; f <= 6; f++)
+                    Center(child: Text('$f ft', style: style)),
+                ],
               ),
-              const SizedBox(height: 14),
-              Text('Your height', style: t.displayLarge?.copyWith(fontSize: 21)),
-              const SizedBox(height: 4),
-              Text('Scroll to set it. Public on your profile.', style: t.bodyMedium),
-              SizedBox(
-                height: 170,
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: CupertinoPicker(
-                        scrollController: FixedExtentScrollController(initialItem: 1),
-                        itemExtent: 40,
-                        onSelectedItemChanged: (i) => feet = 4 + i,
-                        children: const [Text('4 ft'), Text('5 ft'), Text('6 ft')],
-                      ),
-                    ),
-                    Expanded(
-                      child: CupertinoPicker(
-                        scrollController: FixedExtentScrollController(initialItem: 6),
-                        itemExtent: 40,
-                        onSelectedItemChanged: (i) => inches = i,
-                        children: [for (var i = 0; i < 12; i++) Text('$i in')],
-                      ),
-                    ),
-                  ],
-                ),
+            ),
+            Expanded(
+              child: CupertinoPicker(
+                scrollController: _inCtl,
+                itemExtent: 42,
+                onSelectedItemChanged: (i) {
+                  _inches = i;
+                  widget.onChanged(_feet, _inches);
+                },
+                children: [
+                  for (var i = 0; i < 12; i++)
+                    Center(child: Text('$i in', style: style)),
+                ],
               ),
-              const SizedBox(height: 10),
-              _PrimaryButton(
-                  label: 'Set height',
-                  onTap: () {
-                    onPick("$feet'$inches\"");
-                    Navigator.of(ctx).pop();
-                  }),
-            ],
-          ),
+            ),
+          ],
         ),
-      );
-    },
-  );
+      ),
+    );
+  }
+}
+
+/// Weight in pounds. Private (matching only) — see the step's reassure note.
+class _WeightWheel extends StatefulWidget {
+  const _WeightWheel({required this.lb, required this.onChanged});
+  final int lb;
+  final ValueChanged<int> onChanged;
+
+  @override
+  State<_WeightWheel> createState() => _WeightWheelState();
+}
+
+class _WeightWheelState extends State<_WeightWheel> {
+  static const _min = 80;
+  static const _max = 350;
+  late int _lb = widget.lb;
+  late final _ctl = FixedExtentScrollController(initialItem: _lb - _min);
+
+  @override
+  void dispose() {
+    _ctl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
+    final style = t.titleLarge?.copyWith(fontWeight: FontWeight.w600);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(AppSpacing.s24, 12, AppSpacing.s24, 0),
+      child: SizedBox(
+        height: 196,
+        child: CupertinoPicker(
+          scrollController: _ctl,
+          itemExtent: 42,
+          onSelectedItemChanged: (i) {
+            _lb = _min + i;
+            widget.onChanged(_lb);
+          },
+          children: [
+            for (var w = _min; w <= _max; w++)
+              Center(child: Text('$w lb', style: style)),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 void _openColorList(BuildContext context, String title, List<ColorOption> options,
