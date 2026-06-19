@@ -3,15 +3,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/data/profile_repository.dart';
 import '../../../core/state/interactions.dart';
 import '../../../core/theme/tokens.dart';
-import '../../feed/data/mock_feed.dart';
+import '../../feed/data/feed_post.dart';
+import '../../feed/data/feed_repository.dart';
 import '../../onboarding/data/onboarding_data.dart';
 
-/// Search (route `/search`). Find people, aesthetics, and looks. Frontend mock:
-/// people + looks from `mockFeed`, aesthetics from the onboarding taxonomy.
-/// Empty query shows discovery (browse aesthetics + people to follow); typing
-/// shows sectioned results. Blocked authors are excluded.
+/// Search (route `/search`). Find people, aesthetics, and looks. Real data:
+/// people from `peopleProvider` (the `profiles` directory), looks from the
+/// personalized `feedProvider` (the `feed()` RPC), aesthetics from the fixed
+/// onboarding taxonomy. Empty query shows discovery (browse aesthetics + people
+/// to follow); typing shows sectioned results. Blocked authors are excluded.
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
 
@@ -34,23 +37,21 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   void _setQuery(String v) => setState(() => _q = v);
 
-  List<({String id, String name, String avatar})> _people(Set<String> blocked) {
-    final seen = <String>{};
-    final out = <({String id, String name, String avatar})>[];
-    for (final p in mockFeed) {
-      if (blocked.contains(p.authorId)) continue;
-      if (seen.add(p.authorId)) {
-        out.add((id: p.authorId, name: p.authorName, avatar: p.imageUrl));
-      }
-    }
-    return out;
-  }
-
   @override
   Widget build(BuildContext context) {
     final blocked = ref.watch(interactionsProvider).blocked;
+    final peopleAsync = ref.watch(peopleProvider);
+    final looksAsync = ref.watch(feedProvider);
     final q = _q.trim().toLowerCase();
-    final people = _people(blocked);
+
+    // Resolve to whatever has loaded; sections render as their data arrives.
+    final people = (peopleAsync.asData?.value ?? const <Person>[])
+        .where((p) => !blocked.contains(p.id))
+        .toList();
+    final looks = (looksAsync.asData?.value ?? const <FeedPost>[])
+        .where((p) => !blocked.contains(p.authorId))
+        .toList();
+    final loading = peopleAsync.isLoading || looksAsync.isLoading;
 
     return Scaffold(
       backgroundColor: AppColors.canvas,
@@ -60,8 +61,8 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
             _searchBar(),
             Expanded(
               child: q.isEmpty
-                  ? _discovery(people)
-                  : _results(q, people, blocked),
+                  ? _discovery(people, loading)
+                  : _results(q, people, looks),
             ),
           ],
         ),
@@ -132,7 +133,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 
   // ── Empty-query discovery ────────────────────────────────────────────────────
 
-  Widget _discovery(List<({String id, String name, String avatar})> people) {
+  Widget _discovery(List<Person> people, bool loading) {
     final t = Theme.of(context).textTheme;
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
@@ -167,26 +168,40 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         const SizedBox(height: 26),
         _sectionLabel('People to discover'),
         const SizedBox(height: 4),
-        for (final p in people)
-          _PersonRow(id: p.id, name: p.name, avatar: p.avatar),
+        if (people.isEmpty && loading)
+          const Padding(
+            padding: EdgeInsets.only(top: 28),
+            child: Center(
+                child: CircularProgressIndicator(
+                    color: AppColors.ink, strokeWidth: 2.5)),
+          )
+        else if (people.isEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 22),
+            child: Text('No one to discover yet.',
+                style: t.bodyLarge?.copyWith(color: AppColors.ink2)),
+          )
+        else
+          for (final p in people) _PersonRow(person: p),
       ],
     );
   }
 
   // ── Results ───────────────────────────────────────────────────────────────
 
-  Widget _results(String q, List<({String id, String name, String avatar})> people,
-      Set<String> blocked) {
+  Widget _results(String q, List<Person> people, List<FeedPost> looks) {
     final t = Theme.of(context).textTheme;
-    final matchedPeople =
-        people.where((p) => p.name.toLowerCase().contains(q)).toList();
+    final matchedPeople = people
+        .where((p) =>
+            p.name.toLowerCase().contains(q) ||
+            p.username.toLowerCase().contains(q))
+        .toList();
     final matchedAesthetics =
         aesthetics.where((a) => a.name.toLowerCase().contains(q)).toList();
-    final matchedLooks = mockFeed
+    final matchedLooks = looks
         .where((p) =>
-            !blocked.contains(p.authorId) &&
-            (p.aesthetic.toLowerCase().contains(q) ||
-                p.authorName.toLowerCase().contains(q)))
+            p.aesthetic.toLowerCase().contains(q) ||
+            p.authorName.toLowerCase().contains(q))
         .toList();
 
     if (matchedPeople.isEmpty &&
@@ -250,8 +265,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
         if (matchedPeople.isNotEmpty) ...[
           _sectionLabel('People'),
           const SizedBox(height: 4),
-          for (final p in matchedPeople)
-            _PersonRow(id: p.id, name: p.name, avatar: p.avatar),
+          for (final p in matchedPeople) _PersonRow(person: p),
           const SizedBox(height: 18),
         ],
         if (matchedLooks.isNotEmpty) ...[
@@ -292,42 +306,36 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
 }
 
 class _PersonRow extends ConsumerWidget {
-  const _PersonRow({required this.id, required this.name, required this.avatar});
-  final String id, name, avatar;
+  const _PersonRow({required this.person});
+  final Person person;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = Theme.of(context).textTheme;
-    final following = ref.watch(interactionsProvider).following.contains(id);
-    final handle = '@${name.toLowerCase().replaceAll(' ', '')}';
+    final following = ref.watch(interactionsProvider).following.contains(person.id);
+    final handle = person.username.isNotEmpty
+        ? '@${person.username}'
+        : '@${person.name.toLowerCase().replaceAll(' ', '')}';
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () => context.push('/user',
-          extra: (id: id, name: name, avatar: avatar, pct: null)),
+          extra: (
+            id: person.id,
+            name: person.name,
+            avatar: person.avatar ?? '',
+            pct: null
+          )),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 9),
         child: Row(
           children: [
-            Container(
-              width: 46,
-              height: 46,
-              padding: const EdgeInsets.all(2),
-              decoration: const BoxDecoration(
-                  color: AppColors.ring, shape: BoxShape.circle),
-              child: ClipOval(
-                child: CachedNetworkImage(
-                    imageUrl: avatar,
-                    fit: BoxFit.cover,
-                    placeholder: (_, _) =>
-                        const ColoredBox(color: AppColors.sand)),
-              ),
-            ),
+            _Avatar(name: person.name, url: person.avatar),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(name,
+                  Text(person.name,
                       style:
                           t.bodyLarge?.copyWith(fontWeight: FontWeight.w700)),
                   Text(handle,
@@ -336,8 +344,9 @@ class _PersonRow extends ConsumerWidget {
               ),
             ),
             GestureDetector(
-              onTap: () =>
-                  ref.read(interactionsProvider.notifier).toggleFollow(id),
+              onTap: () => ref
+                  .read(interactionsProvider.notifier)
+                  .toggleFollow(person.id),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 150),
                 padding:
@@ -355,6 +364,49 @@ class _PersonRow extends ConsumerWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// A 46px avatar — the profile photo if set, otherwise initials on a sand disc
+/// (most MVP profiles have no avatar yet).
+class _Avatar extends StatelessWidget {
+  const _Avatar({required this.name, required this.url});
+  final String name;
+  final String? url;
+
+  String get _initials {
+    final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty);
+    if (parts.isEmpty) return '?';
+    return parts.take(2).map((p) => p[0].toUpperCase()).join();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 46,
+      height: 46,
+      padding: const EdgeInsets.all(2),
+      decoration:
+          const BoxDecoration(color: AppColors.ring, shape: BoxShape.circle),
+      child: ClipOval(
+        child: (url == null || url!.isEmpty)
+            ? Container(
+                color: AppColors.sand,
+                alignment: Alignment.center,
+                child: Text(_initials,
+                    style: const TextStyle(
+                      fontFamily: AppFonts.text,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF5B4F3C),
+                    )),
+              )
+            : CachedNetworkImage(
+                imageUrl: url!,
+                fit: BoxFit.cover,
+                placeholder: (_, _) => const ColoredBox(color: AppColors.sand)),
       ),
     );
   }

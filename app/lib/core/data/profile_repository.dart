@@ -51,6 +51,32 @@ class ProfileRepository {
 final profileRepositoryProvider =
     Provider<ProfileRepository>((_) => ProfileRepository());
 
+/// A person in the people directory (Search). Public profile fields only —
+/// never weight. [avatar] may be null (no avatar set yet → initials fallback).
+typedef Person = ({String id, String name, String username, String? avatar});
+
+/// People to discover / search — public profiles, excluding the signed-in user.
+/// The `profiles_select` RLS policy already hides anyone who has blocked the
+/// caller; the client also drops locally-blocked authors at render time.
+final peopleProvider = FutureProvider.autoDispose<List<Person>>((ref) async {
+  final c = Supabase.instance.client;
+  final uid = c.auth.currentUser?.id;
+  final rows = await c
+      .from('profiles')
+      .select('id, username, display_name, avatar_url')
+      .order('created_at', ascending: false)
+      .limit(50);
+  return rows
+      .where((r) => r['id'] != uid)
+      .map<Person>((r) => (
+            id: r['id'] as String,
+            name: (r['display_name'] ?? r['username'] ?? 'Someone') as String,
+            username: (r['username'] as String?) ?? '',
+            avatar: r['avatar_url'] as String?,
+          ))
+      .toList();
+});
+
 /// The signed-in user's own posts (newest first).
 final myPostsProvider = FutureProvider.autoDispose<List<FeedPost>>((ref) async {
   final c = Supabase.instance.client;

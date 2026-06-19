@@ -7,13 +7,15 @@ import '../../../core/state/interactions.dart';
 import '../../../core/state/session.dart';
 import '../../../core/theme/tokens.dart';
 import '../../feed/data/feed_post.dart';
-import '../../feed/data/mock_feed.dart';
+import '../../feed/data/feed_repository.dart';
 
 /// Discover — a swipe deck of looks picked for you, one at a time. Drag right to
 /// like, left to pass; the bookmark keeps it (account-gated). Endless supply by
 /// looping the deck. A V2 surface (SRS §4.3, FR-DS.1/3/4) pulled forward and
-/// built to the locked design system (`docs/design.md`). Frontend-only: swipes
-/// toggle in-memory likes; real preference learning wires in later.
+/// built to the locked design system (`docs/design.md`). Now reads real posts
+/// from the same personalized `feed()` RPC as Home (ranked by match%); swipes
+/// persist likes/saves via [interactionsProvider]. Real preference learning
+/// (the swipe signal feeding ranking) wires in later.
 class DiscoverScreen extends ConsumerStatefulWidget {
   const DiscoverScreen({super.key});
 
@@ -35,16 +37,16 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
   int _index = 0;
   double _w = 400;
 
-  /// Deck minus any blocked authors (FR-SG.8). Falls back to the full list if
-  /// everything is blocked (keeps the mock from going empty).
+  /// The live deck: the loaded feed minus any blocked authors (FR-SG.8). Empty
+  /// until the feed resolves; the deck UI (and the gesture handlers that read
+  /// these getters) only runs once [build] has confirmed a non-empty deck.
   List<FeedPost> get _deck {
+    final all = ref.read(feedProvider).asData?.value ?? const <FeedPost>[];
     final blocked = ref.read(interactionsProvider).blocked;
-    final d = mockFeed.where((p) => !blocked.contains(p.authorId)).toList();
-    return d.isEmpty ? mockFeed : d;
+    return all.where((p) => !blocked.contains(p.authorId)).toList();
   }
 
   FeedPost get _current => _deck[_index % _deck.length];
-  FeedPost get _next => _deck[(_index + 1) % _deck.length];
 
   void _tick() {
     setState(() {
@@ -110,15 +112,12 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
     _w = MediaQuery.sizeOf(context).width;
-    final saved = ref.watch(interactionsProvider).saved.contains(_current.id);
-
-    final reach = _w * 0.26;
-    final angle = (_drag.dx / _w) * 0.18;
-    final likeOpacity = (_drag.dx / reach).clamp(0.0, 1.0);
-    final passOpacity = (-_drag.dx / reach).clamp(0.0, 1.0);
+    final feedAsync = ref.watch(feedProvider);
+    final blocked = ref.watch(interactionsProvider).blocked;
 
     return SafeArea(
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(
@@ -137,70 +136,166 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
             ),
           ),
           Expanded(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.s20, 6, AppSpacing.s20, 6),
-              child: Stack(
-                children: [
-                  // Peek of the next card behind, slightly smaller.
-                  Positioned.fill(
-                    child: Transform.translate(
-                      offset: const Offset(0, 16),
-                      child: Transform.scale(
-                        scale: 0.94,
-                        child: _DiscoverCard(post: _next),
-                      ),
+            child: feedAsync.when(
+              loading: () => const _DiscoverLoading(),
+              error: (e, _) => _DiscoverMessage(
+                icon: Icons.cloud_off_rounded,
+                title: "Couldn't load Discover",
+                body: 'Check your connection and try again.',
+                onRetry: () => ref.invalidate(feedProvider),
+              ),
+              data: (all) {
+                final deck =
+                    all.where((p) => !blocked.contains(p.authorId)).toList();
+                if (deck.isEmpty) {
+                  return const _DiscoverMessage(
+                    icon: Icons.style_rounded,
+                    title: "You're all caught up",
+                    body:
+                        'No more looks to discover right now — check back soon.',
+                  );
+                }
+                return _buildDeck(context, deck);
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// The live swipe deck, built once the feed has resolved to a non-empty list.
+  Widget _buildDeck(BuildContext context, List<FeedPost> deck) {
+    final current = deck[_index % deck.length];
+    final next = deck[(_index + 1) % deck.length];
+    final saved = ref.watch(interactionsProvider).saved.contains(current.id);
+
+    final reach = _w * 0.26;
+    final angle = (_drag.dx / _w) * 0.18;
+    final likeOpacity = (_drag.dx / reach).clamp(0.0, 1.0);
+    final passOpacity = (-_drag.dx / reach).clamp(0.0, 1.0);
+
+    return Column(
+      children: [
+        Expanded(
+          child: Padding(
+            padding:
+                const EdgeInsets.fromLTRB(AppSpacing.s20, 6, AppSpacing.s20, 6),
+            child: Stack(
+              children: [
+                // Peek of the next card behind, slightly smaller.
+                Positioned.fill(
+                  child: Transform.translate(
+                    offset: const Offset(0, 16),
+                    child: Transform.scale(
+                      scale: 0.94,
+                      child: _DiscoverCard(post: next),
                     ),
                   ),
-                  // The live, draggable top card.
-                  Positioned.fill(
-                    child: GestureDetector(
-                      onTap: () => context.push('/outfit', extra: _current),
-                      onPanUpdate: _onPanUpdate,
-                      onPanEnd: _onPanEnd,
-                      child: Transform.translate(
-                        offset: _drag,
-                        child: Transform.rotate(
-                          angle: angle,
-                          child: _DiscoverCard(
-                            post: _current,
-                            saved: saved,
-                            onSave: _save,
-                            likeOpacity: likeOpacity,
-                            passOpacity: passOpacity,
-                          ),
+                ),
+                // The live, draggable top card.
+                Positioned.fill(
+                  child: GestureDetector(
+                    onTap: () => context.push('/outfit', extra: current),
+                    onPanUpdate: _onPanUpdate,
+                    onPanEnd: _onPanEnd,
+                    child: Transform.translate(
+                      offset: _drag,
+                      child: Transform.rotate(
+                        angle: angle,
+                        child: _DiscoverCard(
+                          post: current,
+                          saved: saved,
+                          onSave: _save,
+                          likeOpacity: likeOpacity,
+                          passOpacity: passOpacity,
                         ),
                       ),
                     ),
                   ),
-                ],
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(
-                AppSpacing.s20, 6, AppSpacing.s20, AppSpacing.s12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _CircleAction(
-                  icon: Icons.close_rounded,
-                  onTap: () => _fling(like: false),
-                  fg: AppColors.ink,
-                  bg: AppColors.paper,
-                  border: true,
-                ),
-                const SizedBox(width: 30),
-                _CircleAction(
-                  icon: Icons.favorite_rounded,
-                  onTap: () => _fling(like: true),
-                  fg: AppColors.onInk,
-                  bg: AppColors.match,
-                  big: true,
                 ),
               ],
             ),
           ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(
+              AppSpacing.s20, 6, AppSpacing.s20, AppSpacing.s12),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _CircleAction(
+                icon: Icons.close_rounded,
+                onTap: () => _fling(like: false),
+                fg: AppColors.ink,
+                bg: AppColors.paper,
+                border: true,
+              ),
+              const SizedBox(width: 30),
+              _CircleAction(
+                icon: Icons.favorite_rounded,
+                onTap: () => _fling(like: true),
+                fg: AppColors.onInk,
+                bg: AppColors.match,
+                big: true,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Centered spinner while the deck loads.
+class _DiscoverLoading extends StatelessWidget {
+  const _DiscoverLoading();
+  @override
+  Widget build(BuildContext context) => const Center(
+        child: CircularProgressIndicator(
+            color: AppColors.ink, strokeWidth: 2.5),
+      );
+}
+
+/// Empty / error state for the deck — mirrors the Feed's message card.
+class _DiscoverMessage extends StatelessWidget {
+  const _DiscoverMessage(
+      {required this.icon, required this.title, required this.body, this.onRetry});
+  final IconData icon;
+  final String title, body;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(40, 40, 40, 60),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 40, color: AppColors.ink3),
+          const SizedBox(height: 14),
+          Text(title, style: t.titleLarge, textAlign: TextAlign.center),
+          const SizedBox(height: 6),
+          Text(body,
+              style: t.bodyLarge?.copyWith(color: AppColors.ink2),
+              textAlign: TextAlign.center),
+          if (onRetry != null) ...[
+            const SizedBox(height: 18),
+            GestureDetector(
+              onTap: onRetry,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 22, vertical: 11),
+                decoration: BoxDecoration(
+                    color: AppColors.ink,
+                    borderRadius: BorderRadius.circular(AppRadii.pill)),
+                child: Text('Try again',
+                    style: t.labelLarge?.copyWith(
+                        color: AppColors.onInk, fontWeight: FontWeight.w700)),
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -381,7 +476,9 @@ class _CardCaption extends StatelessWidget {
               const SizedBox(width: 6),
               Flexible(
                 child: Text(
-                  'Similar build · your ${post.aesthetic} taste',
+                  post.aesthetic.isEmpty
+                      ? 'Similar build · matches your taste'
+                      : 'Similar build · your ${post.aesthetic} taste',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
