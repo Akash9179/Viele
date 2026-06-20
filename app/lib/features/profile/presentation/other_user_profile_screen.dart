@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/matching/match_band.dart';
 import '../../../core/state/interactions.dart';
 import '../../../core/theme/tokens.dart';
 import '../../feed/data/mock_feed.dart';
@@ -30,6 +31,7 @@ class OtherUserProfileScreen extends ConsumerWidget {
     final t = Theme.of(context).textTheme;
     final following = ref.watch(interactionsProvider).following.contains(userId);
     final handle = '@${name.toLowerCase().replaceAll(' ', '')}';
+    final band = matchPct == null ? null : matchBandFor(matchPct!);
 
     return Scaffold(
       appBar: AppBar(
@@ -91,14 +93,14 @@ class OtherUserProfileScreen extends ConsumerWidget {
                   Row(
                     children: [
                       Text(name, style: t.headlineSmall),
-                      if (matchPct != null) ...[
+                      if (band != null) ...[
                         const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
                           decoration: BoxDecoration(
                               color: const Color(0xFFE7F2EA),
                               borderRadius: BorderRadius.circular(AppRadii.pill)),
-                          child: Text('$matchPct% match',
+                          child: Text(band.label,
                               style: t.bodySmall?.copyWith(
                                   color: AppColors.matchDark,
                                   fontWeight: FontWeight.w700)),

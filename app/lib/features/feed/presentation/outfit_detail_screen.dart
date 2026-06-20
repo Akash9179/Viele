@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/matching/match_band.dart';
 import '../../../core/state/interactions.dart';
 import '../../../core/state/session.dart';
 import '../../../core/theme/tokens.dart';
@@ -82,30 +83,31 @@ class OutfitDetailScreen extends ConsumerWidget {
                     ),
                   ),
                 ),
-                Positioned(
-                  left: 14,
-                  bottom: 14,
-                  child: Container(
-                    padding: const EdgeInsets.fromLTRB(8, 5, 12, 5),
-                    decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.95),
-                        borderRadius: BorderRadius.circular(AppRadii.pill)),
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Container(
-                          width: 8,
-                          height: 8,
-                          margin: const EdgeInsets.only(right: 6),
-                          decoration: const BoxDecoration(
-                              color: AppColors.match, shape: BoxShape.circle)),
-                      Text('${post.matchPct}% match',
-                          style: const TextStyle(
-                              fontFamily: AppFonts.text,
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.ink)),
-                    ]),
+                if (matchBandFor(post.matchPct) case final band?)
+                  Positioned(
+                    left: 14,
+                    bottom: 14,
+                    child: Container(
+                      padding: const EdgeInsets.fromLTRB(8, 5, 12, 5),
+                      decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.95),
+                          borderRadius: BorderRadius.circular(AppRadii.pill)),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        Container(
+                            width: 8,
+                            height: 8,
+                            margin: const EdgeInsets.only(right: 6),
+                            decoration: const BoxDecoration(
+                                color: AppColors.match, shape: BoxShape.circle)),
+                        Text(band.label,
+                            style: const TextStyle(
+                                fontFamily: AppFonts.text,
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.ink)),
+                      ]),
+                    ),
                   ),
-                ),
               ],
             ),
           ),

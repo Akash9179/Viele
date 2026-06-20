@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/matching/match_band.dart';
 import '../../../core/state/interactions.dart';
 import '../../../core/state/session.dart';
 import '../../../core/theme/tokens.dart';
@@ -348,7 +349,8 @@ class _DiscoverCard extends StatelessWidget {
                 ),
               ),
             ),
-            Positioned(top: 12, left: 12, child: _MatchPill(pct: post.matchPct)),
+            if (matchBandFor(post.matchPct) case final band?)
+              Positioned(top: 12, left: 12, child: _MatchPill(band: band)),
             if (onSave != null)
               Positioned(
                 top: 12,
@@ -498,8 +500,8 @@ class _CardCaption extends StatelessWidget {
 }
 
 class _MatchPill extends StatelessWidget {
-  const _MatchPill({required this.pct});
-  final int pct;
+  const _MatchPill({required this.band});
+  final MatchBand band;
 
   @override
   Widget build(BuildContext context) {
@@ -520,7 +522,7 @@ class _MatchPill extends StatelessWidget {
                 color: AppColors.match, shape: BoxShape.circle),
           ),
           Text(
-            '$pct% match',
+            band.label,
             style: const TextStyle(
               fontFamily: AppFonts.text,
               fontSize: 11.5,

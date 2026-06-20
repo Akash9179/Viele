@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/matching/match_band.dart';
 import '../../../../core/state/interactions.dart';
 import '../../../../core/state/session.dart';
 import '../../../../core/theme/tokens.dart';
@@ -19,6 +20,7 @@ class MatchCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final saved = ref.watch(interactionsProvider).saved.contains(post.id);
+    final band = matchBandFor(post.matchPct);
     return GestureDetector(
       onTap: () => context.push('/outfit', extra: post),
       child: Column(
@@ -44,8 +46,9 @@ class MatchCard extends ConsumerWidget {
                           const ColoredBox(color: AppColors.taupe),
                     ),
                   ),
-                  Positioned(
-                      top: 10, left: 10, child: _MatchPill(pct: post.matchPct)),
+                  if (band != null)
+                    Positioned(
+                        top: 10, left: 10, child: _MatchPill(band: band)),
                   Positioned(
                     top: 10,
                     right: 10,
@@ -71,8 +74,8 @@ class MatchCard extends ConsumerWidget {
 }
 
 class _MatchPill extends StatelessWidget {
-  const _MatchPill({required this.pct});
-  final int pct;
+  const _MatchPill({required this.band});
+  final MatchBand band;
 
   @override
   Widget build(BuildContext context) {
@@ -95,7 +98,7 @@ class _MatchPill extends StatelessWidget {
             ),
           ),
           Text(
-            '$pct%',
+            band.label,
             style: const TextStyle(
               fontFamily: AppFonts.text,
               fontSize: 11.5,
