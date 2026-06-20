@@ -68,7 +68,7 @@ Flutter app lives in `app/`. Connects to the shared live Supabase project via a 
 - **Setup / run:** `cd app && flutter pub get && flutter run` (iOS sim or device). `flutter doctor` to check toolchain (needs Dart ≥ 3.12, Xcode, CocoaPods).
 - **Static analysis:** `cd app && flutter analyze` (kept clean — must pass before commit).
 - **Tests:** `cd app && flutter test`.
-- **TestFlight / release build:** `cd app && flutter build ipa`, then upload via Transporter or `xcrun altool`. iOS bundle id `io.suryavanshi.viele`, Apple team `XHQRLPSVMY` (Akash's), automatic signing. No fastlane/CI yet — first upload + App Store Connect app record are manual.
+- **TestFlight / release build:** `cd app && flutter build ipa`, then upload via Transporter or `xcrun altool`. Publish under your **own** Apple Developer account — set `PRODUCT_BUNDLE_IDENTIFIER` + `DEVELOPMENT_TEAM` in `app/ios/Runner.xcodeproj` to yours (keep local, don't commit) and create your own App Store Connect record. No fastlane/CI yet. See `README.md` for the full walkthrough.
 - **Debug screenshot defines** (`--dart-define=KEY=val`, all off by default): `ROUTE=/path` (initial route), `START=n` (onboarding step), `SCROLL`/`EMPTY` (post compose), `SHEET=report|block` (outfit detail), `TAB=1` (profile Saved), `Q=...` (search query), `DEVLOGIN=email|password` (auto sign-in; no creds committed).
 - **Supabase:** schema migrations in `supabase/migrations/` (0001–0006); demo data in `supabase/seed_demo.sql`. Apply via the Supabase MCP/dashboard against project `mdgublyyxcgpwvnmnlxe`.
 - React admin: not scaffolded yet.

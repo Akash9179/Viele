@@ -65,7 +65,7 @@ Viele/
 │   │   ├── app.dart         # routes (go_router) + shell tabs
 │   │   ├── core/            # supabase config, theme, shared state, matching
 │   │   └── features/        # feed, discover, post, profile, search, onboarding, …
-│   └── ios/                 # iOS project (bundle id io.suryavanshi.viele)
+│   └── ios/                 # iOS project
 ├── supabase/
 │   ├── migrations/          # schema + RLS (0001–0006)
 │   └── seed_demo.sql        # demo authors + posts
@@ -73,13 +73,15 @@ Viele/
 ```
 
 ## TestFlight (iOS)
-Not yet automated (no fastlane/CI). The app is configured under bundle id
-**`io.suryavanshi.viele`** and Apple Developer team **`XHQRLPSVMY`** with automatic
-signing.
+Not yet automated (no fastlane/CI). Publish under **your own** Apple Developer account.
 
-First-time setup (one-time, by the Apple-account owner):
-1. Create the app record on **App Store Connect** for `io.suryavanshi.viele`.
-2. Add additional uploaders to the App Store Connect team (role **App Manager**).
+First-time setup (one-time, yours to do):
+1. A paid **Apple Developer Program** membership (Individual is fine — $99/yr).
+2. Point the project at your account: set `PRODUCT_BUNDLE_IDENTIFIER` (a bundle id under
+   your own reverse-domain, e.g. `com.<you>.viele`) and `DEVELOPMENT_TEAM` (your Team ID)
+   in `app/ios/Runner.xcodeproj`. Keep these **local — don't commit/push** them.
+3. Create the matching app record on **App Store Connect** for that bundle id.
+4. Install **Transporter** (Mac App Store), signed into your Apple ID.
 
 Build + upload:
 ```bash
@@ -88,37 +90,20 @@ flutter build ipa
 # upload the .ipa via Transporter.app, or:
 xcrun altool --upload-app -f build/ios/ipa/*.ipa -t ios -u <apple-id> -p <app-specific-password>
 ```
-To publish under a **different** Apple account, change `PRODUCT_BUNDLE_IDENTIFIER` and
-`DEVELOPMENT_TEAM` in `app/ios/Runner.xcodeproj` and create a matching App Store Connect
-record.
 
 ## Prompts for a coding agent (Claude Code)
 
-Copy-paste prompts for driving the app with an AI coding agent. The TestFlight ones
-assume the manual Apple-account prerequisites below are already done.
+Copy-paste prompts for driving the app with an AI coding agent.
 
-**Manual prerequisites (one-time, can't be done by the agent):**
-1. App Store Connect app record exists for `io.suryavanshi.viele`.
-2. You have access to team `XHQRLPSVMY` (invited as *App Manager*), or you've switched
-   the bundle id + team to your own account.
-3. Xcode is signed into an Apple ID with access to that team (Xcode → Settings → Accounts).
-4. **Transporter** installed (Mac App Store) and signed in with that Apple ID (a 2FA
-   app-specific password from appleid.apple.com may be needed).
-
-**1 — Clone & run locally:**
+**1 — Clone & run locally** (no Apple account needed — runs on the simulator, or your own
+device with a free Apple ID):
 > Clone https://github.com/Akash9179/Viele and read README.md and CLAUDE.md first. Run `flutter doctor` to check my toolchain, then get the Flutter app in app/ running on the iOS simulator: `cd app && flutter pub get && flutter run`. It uses a committed publishable Supabase key, so no env/secrets setup is needed. Once it's up, let me create an account through onboarding to test the full flow.
 
-**2 — Build a signed TestFlight IPA:**
-> Build a signed iOS release IPA of the Viele app (in app/) for TestFlight. Bundle id is io.suryavanshi.viele, Apple team XHQRLPSVMY, automatic signing; my Xcode is signed into an Apple ID with access to that team. First bump the build number in app/pubspec.yaml (the +N in `version: 1.0.0+N`) to the next unused integer — App Store Connect rejects duplicate build numbers. Then run `flutter build ipa`; if signing/export options are needed, create the right ExportOptions.plist (method: app-store-connect) and re-run. When it succeeds, show me the path to the .ipa (build/ios/ipa/*.ipa) and confirm it's signed. Don't upload it yourself — I'll do that in Transporter.
-
-**3 — Upload via Transporter** (the agent can't drive the GUI — it hands off and guides):
-> The signed .ipa is built. Walk me through uploading it to TestFlight using the Transporter app step by step: (1) tell me the exact path to the .ipa and reveal it in Finder; (2) guide me through opening Transporter, signing in with my Apple ID (note if I need an app-specific password), adding the .ipa, letting it validate, then Deliver; (3) tell me what to expect afterwards (processing time in App Store Connect → TestFlight, the export-compliance question, adding testers). If validation fails, read the error and tell me exactly what to fix.
-
-**Alt — publish to a *different / personal* Apple account** (instead of the configured
-`io.suryavanshi.viele` / team `XHQRLPSVMY`): you need your own paid Apple Developer
-Program membership, a bundle id under your own reverse-domain, and an App Store Connect
-record for it. Keep the signing changes local — **don't commit/push them**.
-> I want to publish the Viele app (in app/) to MY OWN personal TestFlight, not the account it's currently configured for. I have my own paid Apple Developer Program membership and Xcode is signed into my Apple ID. (1) Look up my Team ID from my signed-in Xcode account and help me pick a bundle id under my own reverse-domain (e.g. com.<myname>.viele). (2) Change DEVELOPMENT_TEAM and PRODUCT_BUNDLE_IDENTIFIER in app/ios/Runner.xcodeproj to mine — keep these changes LOCAL only, do NOT commit or push them. (3) Remind me to create an App Store Connect app record for that bundle id before uploading. (4) Bump the build number in app/pubspec.yaml (+N), then run `flutter build ipa` (method app-store-connect); fix any signing/export issues and re-run until I get a signed .ipa. (5) Then walk me through uploading via Transporter step by step and what to expect in TestFlight afterward.
+**2 — Publish to your own TestFlight.** Prerequisites you do by hand first: a paid Apple
+Developer Program membership (Individual, $99/yr), and **Transporter** installed + signed
+into your Apple ID. The agent handles the project + build; you do the App Store Connect
+record + the Transporter upload it walks you through.
+> I want to publish the Viele app (in app/) to my own TestFlight. I have a paid Apple Developer Program membership and Xcode is signed into my Apple ID. (1) Look up my Team ID from my signed-in Xcode account and help me pick a bundle id under my own reverse-domain (e.g. com.<myname>.viele). (2) Set DEVELOPMENT_TEAM and PRODUCT_BUNDLE_IDENTIFIER in app/ios/Runner.xcodeproj to mine — keep these changes LOCAL only, do NOT commit or push them. (3) Remind me to create an App Store Connect app record for that bundle id before uploading. (4) Bump the build number in app/pubspec.yaml (the +N in `version: 1.0.0+N`) to the next integer, then run `flutter build ipa` (method app-store-connect); fix any signing/export-options issues and re-run until I get a signed .ipa, then show me its path (build/ios/ipa/*.ipa). (5) Then walk me through uploading via the Transporter app step by step — path to the .ipa, sign in (note if I need an app-specific password), validate, Deliver — and what to expect in TestFlight afterward. If validation fails, read the error and tell me exactly what to fix.
 
 Notes: export compliance is pre-handled (`ITSAppUsesNonExemptEncryption=false`), so the
 "Missing Compliance" prompt should auto-resolve. After "Delivered," the build takes
