@@ -114,6 +114,12 @@ assume the manual Apple-account prerequisites below are already done.
 **3 — Upload via Transporter** (the agent can't drive the GUI — it hands off and guides):
 > The signed .ipa is built. Walk me through uploading it to TestFlight using the Transporter app step by step: (1) tell me the exact path to the .ipa and reveal it in Finder; (2) guide me through opening Transporter, signing in with my Apple ID (note if I need an app-specific password), adding the .ipa, letting it validate, then Deliver; (3) tell me what to expect afterwards (processing time in App Store Connect → TestFlight, the export-compliance question, adding testers). If validation fails, read the error and tell me exactly what to fix.
 
+**Alt — publish to a *different / personal* Apple account** (instead of the configured
+`io.suryavanshi.viele` / team `XHQRLPSVMY`): you need your own paid Apple Developer
+Program membership, a bundle id under your own reverse-domain, and an App Store Connect
+record for it. Keep the signing changes local — **don't commit/push them**.
+> I want to publish the Viele app (in app/) to MY OWN personal TestFlight, not the account it's currently configured for. I have my own paid Apple Developer Program membership and Xcode is signed into my Apple ID. (1) Look up my Team ID from my signed-in Xcode account and help me pick a bundle id under my own reverse-domain (e.g. com.<myname>.viele). (2) Change DEVELOPMENT_TEAM and PRODUCT_BUNDLE_IDENTIFIER in app/ios/Runner.xcodeproj to mine — keep these changes LOCAL only, do NOT commit or push them. (3) Remind me to create an App Store Connect app record for that bundle id before uploading. (4) Bump the build number in app/pubspec.yaml (+N), then run `flutter build ipa` (method app-store-connect); fix any signing/export issues and re-run until I get a signed .ipa. (5) Then walk me through uploading via Transporter step by step and what to expect in TestFlight afterward.
+
 Notes: export compliance is pre-handled (`ITSAppUsesNonExemptEncryption=false`), so the
 "Missing Compliance" prompt should auto-resolve. After "Delivered," the build takes
 ~5–15 min to appear in TestFlight. The build points at the **shared live Supabase**, so
