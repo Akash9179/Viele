@@ -54,8 +54,8 @@ Debug screenshot hooks (all off by default), e.g. land directly on a screen:
 flutter run --dart-define=ROUTE=/discover
 flutter run --dart-define=ROUTE=/home --dart-define=DEVLOGIN='email|password'  # auto sign-in
 ```
-Other defines: `START` (onboarding step), `Q` (search query), `SHEET`, `TAB`, `SCROLL`,
-`EMPTY`. No credentials are committed.
+Other defines: `START` (onboarding step), `Q` (search query), `SHEET`, `TAB`, `SCROLL`.
+No credentials are committed.
 
 ## Project layout
 ```
@@ -86,10 +86,11 @@ First-time setup (one-time, yours to do):
 Build + upload:
 ```bash
 cd app
-flutter build ipa
-# upload the .ipa via Transporter.app, or:
-xcrun altool --upload-app -f build/ios/ipa/*.ipa -t ios -u <apple-id> -p <app-specific-password>
+flutter build ipa     # produces build/ios/ipa/*.ipa
 ```
+Then upload the `.ipa` with the **Transporter** app (the supported path — drag in, validate,
+Deliver). `xcrun altool --upload-app` also works from the CLI but is deprecated, so
+Transporter is recommended.
 
 ## Prompts for a coding agent (Claude Code)
 
