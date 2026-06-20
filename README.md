@@ -92,6 +92,33 @@ To publish under a **different** Apple account, change `PRODUCT_BUNDLE_IDENTIFIE
 `DEVELOPMENT_TEAM` in `app/ios/Runner.xcodeproj` and create a matching App Store Connect
 record.
 
+## Prompts for a coding agent (Claude Code)
+
+Copy-paste prompts for driving the app with an AI coding agent. The TestFlight ones
+assume the manual Apple-account prerequisites below are already done.
+
+**Manual prerequisites (one-time, can't be done by the agent):**
+1. App Store Connect app record exists for `io.suryavanshi.viele`.
+2. You have access to team `XHQRLPSVMY` (invited as *App Manager*), or you've switched
+   the bundle id + team to your own account.
+3. Xcode is signed into an Apple ID with access to that team (Xcode → Settings → Accounts).
+4. **Transporter** installed (Mac App Store) and signed in with that Apple ID (a 2FA
+   app-specific password from appleid.apple.com may be needed).
+
+**1 — Clone & run locally:**
+> Clone https://github.com/Akash9179/Viele and read README.md and CLAUDE.md first. Run `flutter doctor` to check my toolchain, then get the Flutter app in app/ running on the iOS simulator: `cd app && flutter pub get && flutter run`. It uses a committed publishable Supabase key, so no env/secrets setup is needed. Once it's up, let me create an account through onboarding to test the full flow.
+
+**2 — Build a signed TestFlight IPA:**
+> Build a signed iOS release IPA of the Viele app (in app/) for TestFlight. Bundle id is io.suryavanshi.viele, Apple team XHQRLPSVMY, automatic signing; my Xcode is signed into an Apple ID with access to that team. First bump the build number in app/pubspec.yaml (the +N in `version: 1.0.0+N`) to the next unused integer — App Store Connect rejects duplicate build numbers. Then run `flutter build ipa`; if signing/export options are needed, create the right ExportOptions.plist (method: app-store-connect) and re-run. When it succeeds, show me the path to the .ipa (build/ios/ipa/*.ipa) and confirm it's signed. Don't upload it yourself — I'll do that in Transporter.
+
+**3 — Upload via Transporter** (the agent can't drive the GUI — it hands off and guides):
+> The signed .ipa is built. Walk me through uploading it to TestFlight using the Transporter app step by step: (1) tell me the exact path to the .ipa and reveal it in Finder; (2) guide me through opening Transporter, signing in with my Apple ID (note if I need an app-specific password), adding the .ipa, letting it validate, then Deliver; (3) tell me what to expect afterwards (processing time in App Store Connect → TestFlight, the export-compliance question, adding testers). If validation fails, read the error and tell me exactly what to fix.
+
+Notes: export compliance is pre-handled (`ITSAppUsesNonExemptEncryption=false`), so the
+"Missing Compliance" prompt should auto-resolve. After "Delivered," the build takes
+~5–15 min to appear in TestFlight. The build points at the **shared live Supabase**, so
+testers' accounts/posts are real in that project.
+
 ## Known issues (in progress)
 - **Stale-session auth:** a returning user whose access token has expired can be silently
   treated as anonymous server-side (flat/no match scores, writes would fail). A **fresh
