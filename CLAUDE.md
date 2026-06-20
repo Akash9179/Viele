@@ -64,4 +64,13 @@ Viele/
 - People: **Eugene** (**founder**; authored the body-scan engine; owns product direction), **Akash Suryavanshi** (helping build the app — engineering/product execution).
 
 ## Commands
-- _None yet — no code scaffolded. Update this section with build/test/run commands after scaffolding the Flutter app and React admin._
+Flutter app lives in `app/`. Connects to the shared live Supabase project via a **committed publishable key** (`app/lib/core/supabase/supabase_config.dart`) — no `.env`/secrets needed to run.
+- **Setup / run:** `cd app && flutter pub get && flutter run` (iOS sim or device). `flutter doctor` to check toolchain (needs Dart ≥ 3.12, Xcode, CocoaPods).
+- **Static analysis:** `cd app && flutter analyze` (kept clean — must pass before commit).
+- **Tests:** `cd app && flutter test`.
+- **TestFlight / release build:** `cd app && flutter build ipa`, then upload via Transporter or `xcrun altool`. iOS bundle id `io.suryavanshi.viele`, Apple team `XHQRLPSVMY` (Akash's), automatic signing. No fastlane/CI yet — first upload + App Store Connect app record are manual.
+- **Debug screenshot defines** (`--dart-define=KEY=val`, all off by default): `ROUTE=/path` (initial route), `START=n` (onboarding step), `SCROLL`/`EMPTY` (post compose), `SHEET=report|block` (outfit detail), `TAB=1` (profile Saved), `Q=...` (search query), `DEVLOGIN=email|password` (auto sign-in; no creds committed).
+- **Supabase:** schema migrations in `supabase/migrations/` (0001–0006); demo data in `supabase/seed_demo.sql`. Apply via the Supabase MCP/dashboard against project `mdgublyyxcgpwvnmnlxe`.
+- React admin: not scaffolded yet.
+
+See `README.md` for the full local-setup + TestFlight walkthrough.
