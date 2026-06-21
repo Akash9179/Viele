@@ -57,6 +57,19 @@ class SessionNotifier extends Notifier<Session> {
   }
 
   Future<void> signOut() => Supabase.instance.client.auth.signOut();
+
+  /// Sends a password-reset email. Returns null on success, or a user-facing
+  /// error message.
+  Future<String?> sendPasswordReset(String email) async {
+    try {
+      await Supabase.instance.client.auth.resetPasswordForEmail(email);
+      return null;
+    } on AuthException catch (e) {
+      return e.message;
+    } catch (_) {
+      return 'Something went wrong. Please try again.';
+    }
+  }
 }
 
 final sessionProvider =

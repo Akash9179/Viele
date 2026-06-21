@@ -22,12 +22,34 @@ const _reportReasons = <(IconData, String, String)>[
   (Icons.more_horiz_rounded, 'Something else', 'other'),
 ];
 
-/// Report a post or a person. [subject] is shown in the title. When [postId] is
-/// given (a post report), a `moderation_reports` row is created for the founders
-/// to review. (User-level reports have no post row in the schema yet — they show
-/// the confirmation but aren't persisted.)
+/// Submit a moderation report. Returns true on success. A report must target a
+/// post ([postId]) or a user ([reportedUserId]); the DB enforces this too.
+Future<bool> _submitReport({
+  String? postId,
+  String? reportedUserId,
+  required String reason,
+}) async {
+  final uid = Supabase.instance.client.auth.currentUser?.id;
+  if (uid == null || (postId == null && reportedUserId == null)) return false;
+  try {
+    await Supabase.instance.client.from('moderation_reports').insert({
+      'post_id': ?postId,
+      'reported_user_id': ?reportedUserId,
+      'reporter_id': uid,
+      'reason': reason,
+    });
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+/// Report a post or a person. [subject] is shown in the title. Provide [postId]
+/// for a post report or [reportedUserId] for a user report — the report is
+/// persisted to `moderation_reports` (awaited) and feeds auto-takedown + the
+/// founder review queue. The confirmation only shows once the write succeeds.
 void showReportSheet(BuildContext context,
-    {required String subject, String? postId}) {
+    {required String subject, String? postId, String? reportedUserId}) {
   showModalBottomSheet<void>(
     context: context,
     backgroundColor: AppColors.canvas,
@@ -36,7 +58,9 @@ void showReportSheet(BuildContext context,
         borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadii.sheet))),
     builder: (ctx) {
       final t = Theme.of(ctx).textTheme;
-      String? chosen;
+      bool submitting = false;
+      bool done = false;
+      bool failed = false;
       return StatefulBuilder(
         builder: (ctx, setSheet) {
           Widget handle() => Center(
@@ -49,8 +73,23 @@ void showReportSheet(BuildContext context,
                         borderRadius: BorderRadius.circular(3))),
               );
 
+          Future<void> pick(String code) async {
+            setSheet(() {
+              submitting = true;
+              failed = false;
+            });
+            final ok = await _submitReport(
+                postId: postId, reportedUserId: reportedUserId, reason: code);
+            if (!ctx.mounted) return;
+            setSheet(() {
+              submitting = false;
+              done = ok;
+              failed = !ok;
+            });
+          }
+
           // Step 2 — confirmation.
-          if (chosen != null) {
+          if (done) {
             return SafeArea(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(22, 0, 22, 24),
@@ -67,7 +106,7 @@ void showReportSheet(BuildContext context,
                         style: t.headlineSmall?.copyWith(fontSize: 21)),
                     const SizedBox(height: 8),
                     Text(
-                      'Our team reviews reports within 24 hours and takes action on anything that breaks the Community Guidelines. Your report is anonymous.',
+                      'Our team reviews reports and takes action on anything that breaks the Community Guidelines. Your report is anonymous.',
                       style: t.bodyLarge
                           ?.copyWith(color: AppColors.ink2, height: 1.45),
                     ),
@@ -97,41 +136,42 @@ void showReportSheet(BuildContext context,
                       const SizedBox(height: 6),
                       Text("Why are you reporting this? We won't tell them.",
                           style: t.bodyMedium),
+                      if (failed) ...[
+                        const SizedBox(height: 8),
+                        Text("Couldn't submit your report. Please try again.",
+                            style: t.bodyMedium?.copyWith(color: _danger)),
+                      ],
                       const SizedBox(height: 8),
                     ],
                   ),
                 ),
-                for (final (icon, label, code) in _reportReasons)
-                  InkWell(
-                    onTap: () {
-                      setSheet(() => chosen = label);
-                      final uid = Supabase.instance.client.auth.currentUser?.id;
-                      if (postId != null && uid != null) {
-                        // Fire-and-forget: create the report for founder review.
-                        Supabase.instance.client.from('moderation_reports').insert({
-                          'post_id': postId,
-                          'reporter_id': uid,
-                          'reason': code,
-                        }).ignore();
-                      }
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 22, vertical: 14),
-                      child: Row(
-                        children: [
-                          Icon(icon, size: 20, color: AppColors.ink2),
-                          const SizedBox(width: 14),
-                          Expanded(
-                              child: Text(label,
-                                  style: t.bodyLarge
-                                      ?.copyWith(fontWeight: FontWeight.w500))),
-                          const Icon(Icons.chevron_right_rounded,
-                              size: 20, color: AppColors.ink3),
-                        ],
+                if (submitting)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 28),
+                    child: Center(
+                        child: CircularProgressIndicator(strokeWidth: 2)),
+                  )
+                else
+                  for (final (icon, label, code) in _reportReasons)
+                    InkWell(
+                      onTap: () => pick(code),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 22, vertical: 14),
+                        child: Row(
+                          children: [
+                            Icon(icon, size: 20, color: AppColors.ink2),
+                            const SizedBox(width: 14),
+                            Expanded(
+                                child: Text(label,
+                                    style: t.bodyLarge?.copyWith(
+                                        fontWeight: FontWeight.w500))),
+                            const Icon(Icons.chevron_right_rounded,
+                                size: 20, color: AppColors.ink3),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
                 const SizedBox(height: 14),
               ],
             ),

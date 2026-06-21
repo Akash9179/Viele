@@ -820,15 +820,6 @@ class _SignupFlowState extends ConsumerState<SignupFlow> {
     if (ok == true && mounted) _next();
   }
 
-  /// Google/Apple aren't configured yet (need provider + native setup).
-  void _oauthSoon() {
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-      behavior: SnackBarBehavior.floating,
-      backgroundColor: AppColors.ink,
-      content: Text('Apple & Google sign-in are coming soon — use email for now.'),
-    ));
-  }
-
   void _toast(String msg) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         behavior: SnackBarBehavior.floating,
         backgroundColor: AppColors.ink,
@@ -904,7 +895,7 @@ class _SignupFlowState extends ConsumerState<SignupFlow> {
         controller: _page,
         physics: const NeverScrollableScrollPhysics(),
         children: [
-          _Account(onEmail: _emailSignup, onOAuth: _oauthSoon, onClose: _close),
+          _Account(onEmail: _emailSignup, onClose: _close),
           _Basics(
             name: _name,
             username: _username,
@@ -928,9 +919,8 @@ class _SignupFlowState extends ConsumerState<SignupFlow> {
 
 class _Account extends StatelessWidget {
   const _Account(
-      {required this.onEmail, required this.onOAuth, this.onClose});
+      {required this.onEmail, this.onClose});
   final VoidCallback onEmail;
-  final VoidCallback onOAuth;
   final VoidCallback? onClose;
 
   @override
@@ -1022,14 +1012,7 @@ class _Account extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            btn('Continue with Apple', Colors.black, Colors.white,
-                icon: Icons.apple, onTap: onOAuth),
-            btn('Continue with Google', Colors.white, const Color(0xFF1F1F1F),
-                icon: Icons.g_mobiledata_rounded,
-                border: Border.all(color: AppColors.line),
-                onTap: onOAuth),
-            btn('Sign up with email', AppColors.canvas, AppColors.ink,
-                border: Border.all(color: AppColors.ink, width: 1.5),
+            btn('Sign up with email', AppColors.ink, AppColors.onInk,
                 onTap: onEmail),
             const SizedBox(height: 4),
             Center(

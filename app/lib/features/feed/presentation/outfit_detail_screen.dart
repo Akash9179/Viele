@@ -9,6 +9,7 @@ import '../../../core/state/session.dart';
 import '../../../core/theme/tokens.dart';
 import '../../moderation/presentation/moderation_actions.dart';
 import '../data/feed_post.dart';
+import '../data/feed_repository.dart';
 
 /// Debug-only: auto-open a moderation sheet for screenshots
 /// (`--dart-define=SHEET=report` or `=block`).
@@ -23,13 +24,6 @@ class OutfitDetailScreen extends ConsumerWidget {
 
   final FeedPost post;
 
-  // Mock "shop the look" rows for the demo.
-  static const _items = [
-    (name: 'Cropped knit sweater', brand: 'COS'),
-    (name: 'Pleated wool trousers', brand: 'Aritzia'),
-    (name: 'Leather belt', brand: 'Massimo Dutti'),
-  ];
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = Theme.of(context).textTheme;
@@ -37,6 +31,16 @@ class OutfitDetailScreen extends ConsumerWidget {
     final saved = inter.saved.contains(post.id);
     final liked = inter.liked.contains(post.id);
     final following = inter.following.contains(post.authorId);
+    final detail = ref.watch(postDetailProvider(post.id)).asData?.value;
+
+    // Real attribute chips: all tagged aesthetics + author height (no fabricated
+    // size / silhouette). Falls back to the lean feed aesthetic before detail loads.
+    final chips = <String>[
+      ...(detail?.aesthetics.isNotEmpty == true
+          ? detail!.aesthetics
+          : [if (post.aesthetic.isNotEmpty) post.aesthetic]),
+      if (post.height.isNotEmpty) post.height,
+    ];
 
     if (_kSheet.isNotEmpty && !_debugSheetShown) {
       _debugSheetShown = true;
@@ -168,16 +172,15 @@ class OutfitDetailScreen extends ConsumerWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 14),
-                  // public attribute chips
-                  Wrap(
-                    spacing: 7,
-                    runSpacing: 7,
-                    children: [
-                      for (final a in [post.aesthetic, post.height, 'Size ${post.size}', 'Hourglass'])
-                        _AttrChip(a),
-                    ],
-                  ),
+                  if (chips.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    // public attribute chips
+                    Wrap(
+                      spacing: 7,
+                      runSpacing: 7,
+                      children: [for (final a in chips) _AttrChip(a)],
+                    ),
+                  ],
                   const SizedBox(height: 16),
                   // actions
                   Row(
@@ -196,24 +199,23 @@ class OutfitDetailScreen extends ConsumerWidget {
                         onTap: () => requireAccount(context, ref,
                             () => ref.read(interactionsProvider.notifier).toggleSave(post.id)),
                       ),
-                      const Spacer(),
-                      _RoundBtn(
-                        icon: Icons.ios_share_rounded,
-                        light: true,
-                        onTap: () {},
-                      ),
                     ],
                   ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Cream knit + tailored trousers — my go-to ‘quiet luxury’ uniform for grey days. Kept the palette tonal and let the tailoring do the talking.',
-                    style: t.bodyLarge?.copyWith(fontSize: 14.5, height: 1.5),
-                  ),
-                  const SizedBox(height: 20),
-                  Text('SHOP THE LOOK',
-                      style: t.labelSmall?.copyWith(letterSpacing: 1.6)),
-                  const SizedBox(height: 6),
-                  for (final it in _items) _ItemRow(name: it.name, brand: it.brand),
+                  if (detail != null && detail.caption.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    Text(
+                      detail.caption,
+                      style: t.bodyLarge?.copyWith(fontSize: 14.5, height: 1.5),
+                    ),
+                  ],
+                  if (detail != null && detail.items.isNotEmpty) ...[
+                    const SizedBox(height: 20),
+                    Text('SHOP THE LOOK',
+                        style: t.labelSmall?.copyWith(letterSpacing: 1.6)),
+                    const SizedBox(height: 6),
+                    for (final it in detail.items)
+                      _ItemRow(name: it.name, brand: it.brand),
+                  ],
                 ],
               ),
             ),
@@ -225,10 +227,9 @@ class OutfitDetailScreen extends ConsumerWidget {
 }
 
 class _RoundBtn extends StatelessWidget {
-  const _RoundBtn({required this.icon, required this.onTap, this.light = false});
+  const _RoundBtn({required this.icon, required this.onTap});
   final IconData icon;
   final VoidCallback onTap;
-  final bool light;
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -238,11 +239,8 @@ class _RoundBtn extends StatelessWidget {
         height: 38,
         margin: const EdgeInsets.only(top: 6),
         decoration: BoxDecoration(
-          color: light
-              ? AppColors.paper
-              : Colors.white.withValues(alpha: 0.92),
+          color: Colors.white.withValues(alpha: 0.92),
           shape: BoxShape.circle,
-          border: light ? Border.all(color: AppColors.line) : null,
         ),
         child: Icon(icon, size: 18, color: AppColors.ink),
       ),
@@ -410,8 +408,6 @@ void _openOverflow(BuildContext context, WidgetRef ref, String postId,
                 if (Navigator.of(context).canPop()) Navigator.of(context).pop();
               });
             }),
-            row(Icons.link_rounded, 'Copy link',
-                onTap: () => Navigator.of(ctx).pop()),
             const SizedBox(height: 12),
           ],
         ),

@@ -5,7 +5,6 @@ import 'core/theme/app_theme.dart';
 import 'features/catwalk/presentation/catwalk_screen.dart';
 import 'features/discover/presentation/discover_screen.dart';
 import 'features/feed/data/feed_post.dart';
-import 'features/feed/data/mock_feed.dart';
 import 'features/feed/presentation/feed_screen.dart';
 import 'features/feed/presentation/outfit_detail_screen.dart';
 import 'features/onboarding/presentation/onboarding_flow.dart';
@@ -53,9 +52,10 @@ final _router = GoRouter(
       path: '/connections',
       parentNavigatorKey: _rootKey,
       builder: (_, state) {
-        final e = state.extra as ({String handle, int tab})?;
+        final e = state.extra as ({String userId, String handle, int tab})?;
+        if (e == null) return const SizedBox.shrink();
         return ConnectionsScreen(
-            handle: e?.handle ?? '@mayachen', initialTab: e?.tab ?? 0);
+            userId: e.userId, handle: e.handle, initialTab: e.tab);
       },
     ),
     GoRoute(
@@ -70,8 +70,11 @@ final _router = GoRouter(
     GoRoute(
       path: '/outfit',
       parentNavigatorKey: _rootKey,
-      builder: (_, state) =>
-          OutfitDetailScreen(post: (state.extra as FeedPost?) ?? mockFeed.first),
+      builder: (_, state) {
+        final post = state.extra as FeedPost?;
+        if (post == null) return const _MissingExtra(label: 'outfit');
+        return OutfitDetailScreen(post: post);
+      },
     ),
     GoRoute(
       path: '/user',
@@ -79,12 +82,12 @@ final _router = GoRouter(
       builder: (_, state) {
         final u =
             state.extra as ({String id, String name, String avatar, int? pct})?;
+        if (u == null) return const _MissingExtra(label: 'profile');
         return OtherUserProfileScreen(
-          userId: u?.id ?? 'u1',
-          name: u?.name ?? 'Mara',
-          avatarUrl: u?.avatar ??
-              'https://images.unsplash.com/photo-1534404483017-8743b4e935cd?w=180&h=180&fit=crop&crop=faces&q=80',
-          matchPct: u?.pct,
+          userId: u.id,
+          name: u.name,
+          avatarUrl: u.avatar,
+          matchPct: u.pct,
         );
       },
     ),
@@ -121,6 +124,20 @@ class VieleApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: buildVieleTheme(),
       routerConfig: _router,
+    );
+  }
+}
+
+/// Shown when a detail route is entered without its required `extra` (e.g. a
+/// deep link or back-stack edge case) — never fabricated content.
+class _MissingExtra extends StatelessWidget {
+  const _MissingExtra({required this.label});
+  final String label;
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(leading: const BackButton()),
+      body: Center(child: Text("This $label isn't available.")),
     );
   }
 }

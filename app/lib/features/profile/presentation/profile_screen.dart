@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/data/collections_repository.dart';
 import '../../../core/data/profile_repository.dart';
@@ -83,16 +84,34 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         _Stat(value: '${myPosts.length}', label: 'Posts'),
                         GestureDetector(
                           behavior: HitTestBehavior.opaque,
-                          onTap: () => context.push('/connections',
-                              extra: (handle: '@${p.username}', tab: 0)),
+                          onTap: () {
+                            final uid =
+                                Supabase.instance.client.auth.currentUser?.id;
+                            if (uid == null) return;
+                            context.push('/connections',
+                                extra: (
+                                  userId: uid,
+                                  handle: '@${p.username}',
+                                  tab: 0
+                                ));
+                          },
                           child: _Stat(
                               value: '${counts?.followers ?? 0}',
                               label: 'Followers'),
                         ),
                         GestureDetector(
                           behavior: HitTestBehavior.opaque,
-                          onTap: () => context.push('/connections',
-                              extra: (handle: '@${p.username}', tab: 1)),
+                          onTap: () {
+                            final uid =
+                                Supabase.instance.client.auth.currentUser?.id;
+                            if (uid == null) return;
+                            context.push('/connections',
+                                extra: (
+                                  userId: uid,
+                                  handle: '@${p.username}',
+                                  tab: 1
+                                ));
+                          },
                           child: _Stat(
                               value: '${counts?.following ?? 0}',
                               label: 'Following'),

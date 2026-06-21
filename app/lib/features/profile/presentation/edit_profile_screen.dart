@@ -2,7 +2,9 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 
+import '../../../core/data/profile_repository.dart';
 import '../../../core/state/profile.dart';
 import '../../../core/theme/tokens.dart';
 import '../../onboarding/data/onboarding_data.dart';
@@ -30,6 +32,42 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   late String _shape = _p.shape;
   late String _hair = _p.hair;
   late String _eye = _p.eye;
+  late String _avatarUrl = _p.avatarUrl;
+  bool _uploadingAvatar = false;
+
+  Future<void> _changePhoto() async {
+    if (_uploadingAvatar) return;
+    final picked = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
+      maxWidth: 1024,
+    );
+    if (picked == null) return;
+    setState(() => _uploadingAvatar = true);
+    try {
+      final url =
+          await ref.read(profileRepositoryProvider).uploadAvatar(picked.path);
+      final err = await ref.read(profileProvider.notifier).updateAvatar(url);
+      if (!mounted) return;
+      if (err != null) {
+        _snack(err);
+      } else {
+        setState(() => _avatarUrl = url);
+      }
+    } catch (_) {
+      if (mounted) _snack("Couldn't upload your photo. Please try again.");
+    } finally {
+      if (mounted) setState(() => _uploadingAvatar = false);
+    }
+  }
+
+  void _snack(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: AppColors.ink,
+      content: Text(msg),
+    ));
+  }
 
   @override
   void dispose() {
@@ -105,24 +143,42 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                 children: [
                   // Avatar
                   Center(
-                    child: Column(
-                      children: [
-                        Container(
-                          width: 88,
-                          height: 88,
-                          padding: const EdgeInsets.all(2.5),
-                          decoration: const BoxDecoration(
-                              color: AppColors.ring, shape: BoxShape.circle),
-                          child: ClipOval(
-                            child: Image.network(_p.avatarUrl, fit: BoxFit.cover),
+                    child: GestureDetector(
+                      onTap: _changePhoto,
+                      child: Column(
+                        children: [
+                          Container(
+                            width: 88,
+                            height: 88,
+                            padding: const EdgeInsets.all(2.5),
+                            decoration: const BoxDecoration(
+                                color: AppColors.ring, shape: BoxShape.circle),
+                            child: ClipOval(
+                              child: _uploadingAvatar
+                                  ? const ColoredBox(
+                                      color: AppColors.sand,
+                                      child: Center(
+                                          child: SizedBox(
+                                              width: 22,
+                                              height: 22,
+                                              child: CircularProgressIndicator(
+                                                  strokeWidth: 2))),
+                                    )
+                                  : Image.network(_avatarUrl,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, _, _) => const ColoredBox(
+                                          color: AppColors.sand,
+                                          child: Icon(Icons.person_rounded,
+                                              color: AppColors.ink3, size: 36))),
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text('Change photo',
-                            style: t.bodyLarge?.copyWith(
-                                color: AppColors.ink,
-                                fontWeight: FontWeight.w700)),
-                      ],
+                          const SizedBox(height: 8),
+                          Text(_uploadingAvatar ? 'Uploading…' : 'Change photo',
+                              style: t.bodyLarge?.copyWith(
+                                  color: AppColors.ink,
+                                  fontWeight: FontWeight.w700)),
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 8),

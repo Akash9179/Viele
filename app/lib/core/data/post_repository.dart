@@ -38,11 +38,13 @@ class PostRepository {
     final media = <String>[];
     for (var i = 0; i < imagePaths.length; i++) {
       final objectName = 'posts/$uid/$postId/$i.jpg';
+      // Not upsert: each post has a unique path, and Storage rejects upsert
+      // uploads under owner-prefixed RLS (the ON CONFLICT path fails the check).
       await _c.storage.from('post-media').upload(
             objectName,
             File(imagePaths[i]),
             fileOptions:
-                const FileOptions(contentType: 'image/jpeg', upsert: true),
+                const FileOptions(contentType: 'image/jpeg', upsert: false),
           );
       media.add(objectName);
     }
