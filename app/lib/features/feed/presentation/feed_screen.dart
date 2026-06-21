@@ -4,14 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/data/profile_repository.dart';
 import '../../../core/state/interactions.dart';
 import '../../../core/theme/tokens.dart';
 import '../data/feed_repository.dart';
-import '../data/mock_feed.dart';
 import 'widgets/match_card.dart';
 
 /// The Feed / Home wedge. Layout per Eugene's mockup + `docs/design.md`:
-/// header → filter chips → recommended-people row → curated masonry.
+/// header → recommended-people row → match-ranked masonry.
 /// Blocked authors are filtered out (FR-SG.8).
 class FeedScreen extends ConsumerWidget {
   const FeedScreen({super.key});
@@ -29,7 +29,6 @@ class FeedScreen extends ConsumerWidget {
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             const SliverToBoxAdapter(child: _AppHeader()),
-            const SliverToBoxAdapter(child: _FilterChips()),
             const SliverToBoxAdapter(child: _RecommendedRow()),
             const SliverToBoxAdapter(child: _CuratedHeader()),
             ...feedAsync.when(
@@ -150,8 +149,6 @@ class _AppHeader extends StatelessWidget {
           _CircleIcon(
               icon: Icons.search_rounded,
               onTap: () => context.push('/search')),
-          const SizedBox(width: 10),
-          const _CircleIcon(icon: Icons.notifications_none_rounded, dot: true),
         ],
       ),
     );
@@ -159,115 +156,47 @@ class _AppHeader extends StatelessWidget {
 }
 
 class _CircleIcon extends StatelessWidget {
-  const _CircleIcon({required this.icon, this.dot = false, this.onTap});
+  const _CircleIcon({required this.icon, this.onTap});
   final IconData icon;
-  final bool dot;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        GestureDetector(
-          onTap: onTap,
-          child: Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: AppColors.paper,
-              shape: BoxShape.circle,
-              border: Border.all(color: AppColors.line),
-            ),
-            child: Icon(icon, size: 18, color: AppColors.ink),
-          ),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: AppColors.paper,
+          shape: BoxShape.circle,
+          border: Border.all(color: AppColors.line),
         ),
-        if (dot)
-          Positioned(
-            top: 9,
-            right: 10,
-            child: Container(
-              width: 7,
-              height: 7,
-              decoration: BoxDecoration(
-                color: AppColors.match,
-                shape: BoxShape.circle,
-                border: Border.all(color: AppColors.paper, width: 1.5),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-class _FilterChips extends StatefulWidget {
-  const _FilterChips();
-  @override
-  State<_FilterChips> createState() => _FilterChipsState();
-}
-
-class _FilterChipsState extends State<_FilterChips> {
-  int _selected = 0;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 52,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(AppSpacing.s20, 12, AppSpacing.s20, 4),
-        itemCount: feedChips.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 9),
-        itemBuilder: (context, i) {
-          final on = i == _selected;
-          return GestureDetector(
-            onTap: () => setState(() => _selected = i),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 9),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: on ? AppColors.ink : AppColors.paper,
-                borderRadius: BorderRadius.circular(AppRadii.pill),
-                border: Border.all(color: on ? AppColors.ink : AppColors.line),
-              ),
-              child: Text(
-                feedChips[i],
-                style: TextStyle(
-                  fontFamily: AppFonts.text,
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w600,
-                  color: on ? AppColors.onInk : AppColors.ink2,
-                ),
-              ),
-            ),
-          );
-        },
+        child: Icon(icon, size: 18, color: AppColors.ink),
       ),
     );
   }
 }
 
-class _RecommendedRow extends StatelessWidget {
+class _RecommendedRow extends ConsumerWidget {
   const _RecommendedRow();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final t = Theme.of(context).textTheme;
+    final people = ref.watch(recommendedPeopleProvider).asData?.value
+        ?? const <RecommendedPerson>[];
+    // Until real recommendations arrive (or if there are none), show nothing —
+    // never a fake or empty row.
+    if (people.isEmpty) return const SizedBox.shrink();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(AppSpacing.s20, 14, AppSpacing.s20, 0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('RECOMMENDED',
-                  style: t.labelSmall?.copyWith(letterSpacing: 2.2)),
-              Text('See all',
-                  style: t.bodyMedium?.copyWith(color: AppColors.ink3)),
-            ],
-          ),
+          child: Text('RECOMMENDED',
+              style: t.labelSmall?.copyWith(letterSpacing: 2.2)),
         ),
         // Intrinsic-height horizontal row (sizes to content — no fixed height,
         // so no overflow and no wasted vertical space before the next section).
@@ -277,52 +206,80 @@ class _RecommendedRow extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              for (var i = 0; i < mockRecommended.length; i++) ...[
+              for (var i = 0; i < people.length; i++) ...[
                 if (i > 0) const SizedBox(width: 15),
                 GestureDetector(
                   onTap: () => context.push('/user', extra: (
-                    id: mockRecommended[i].id,
-                    name: mockRecommended[i].name,
-                    avatar: mockRecommended[i].avatar,
-                    pct: mockRecommended[i].pct,
+                    id: people[i].id,
+                    name: people[i].name,
+                    avatar: people[i].avatar ?? '',
+                    pct: people[i].matchPct,
                   )),
                   child: SizedBox(
-                  width: 60,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 60,
-                        height: 60,
-                        padding: const EdgeInsets.all(2.5),
-                        decoration: const BoxDecoration(
-                          color: AppColors.ring,
-                          shape: BoxShape.circle,
-                        ),
-                        child: ClipOval(
-                          child: CachedNetworkImage(
-                            imageUrl: mockRecommended[i].avatar,
-                            fit: BoxFit.cover,
-                            placeholder: (_, _) =>
-                                const ColoredBox(color: AppColors.sand),
+                    width: 60,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 60,
+                          height: 60,
+                          padding: const EdgeInsets.all(2.5),
+                          decoration: const BoxDecoration(
+                            color: AppColors.ring,
+                            shape: BoxShape.circle,
+                          ),
+                          child: ClipOval(
+                            child: people[i].avatar == null
+                                ? _PersonInitials(name: people[i].name)
+                                : CachedNetworkImage(
+                                    imageUrl: people[i].avatar!,
+                                    fit: BoxFit.cover,
+                                    placeholder: (_, _) =>
+                                        const ColoredBox(color: AppColors.sand),
+                                    errorWidget: (_, _, _) =>
+                                        _PersonInitials(name: people[i].name),
+                                  ),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 7),
-                      Text(mockRecommended[i].name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: t.bodyMedium?.copyWith(
-                              color: AppColors.ink,
-                              fontWeight: FontWeight.w600)),
-                    ],
+                        const SizedBox(height: 7),
+                        Text(people[i].name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: t.bodyMedium?.copyWith(
+                                color: AppColors.ink,
+                                fontWeight: FontWeight.w600)),
+                      ],
+                    ),
                   ),
-                )),
+                ),
               ],
             ],
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Initials circle for a recommended person with no avatar set.
+class _PersonInitials extends StatelessWidget {
+  const _PersonInitials({required this.name});
+  final String name;
+  @override
+  Widget build(BuildContext context) {
+    final parts =
+        name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+    final initials = parts.isEmpty
+        ? '?'
+        : parts.take(2).map((p) => p[0].toUpperCase()).join();
+    return Container(
+      color: AppColors.sand,
+      alignment: Alignment.center,
+      child: Text(initials,
+          style: const TextStyle(
+              fontFamily: AppFonts.display,
+              fontSize: 18,
+              color: AppColors.ink2)),
     );
   }
 }

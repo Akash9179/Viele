@@ -44,6 +44,30 @@ class _EmailAuthSheetState extends State<_EmailAuthSheet> {
     super.dispose();
   }
 
+  Future<void> _forgotPassword() async {
+    final email = _email.text.trim();
+    if (email.isEmpty || !email.contains('@')) {
+      setState(() => _error = 'Enter your email above, then tap “Forgot password”.');
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+      _info = null;
+    });
+    final err =
+        await widget.authRef.read(sessionProvider.notifier).sendPasswordReset(email);
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      if (err != null) {
+        _error = err;
+      } else {
+        _info = 'Password reset link sent — check your email.';
+      }
+    });
+  }
+
   Future<void> _submit() async {
     final email = _email.text.trim();
     final pass = _pass.text;
@@ -119,6 +143,24 @@ class _EmailAuthSheetState extends State<_EmailAuthSheet> {
                   keyboard: TextInputType.emailAddress, autofocus: true),
               const SizedBox(height: 12),
               _input(_pass, 'Password', obscure: true),
+              if (!_signUp) ...[
+                const SizedBox(height: 6),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: _busy ? null : _forgotPassword,
+                    style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                    child: Text('Forgot password?',
+                        style: t.bodyMedium?.copyWith(
+                            color: AppColors.ink2,
+                            fontWeight: FontWeight.w600)),
+                  ),
+                ),
+              ],
               if (_error != null) ...[
                 const SizedBox(height: 12),
                 Text(_error!,

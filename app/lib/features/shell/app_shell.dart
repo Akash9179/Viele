@@ -6,9 +6,9 @@ import '../../core/state/session.dart';
 import '../../core/theme/tokens.dart';
 
 /// The bottom-tab scaffold: Home · Discover · ＋ · Catwalk · Profile.
-/// v1 shows all five slots; Discover + Catwalk route to "coming soon" (V2 scope,
-/// SRS §9). The center ＋ opens Post compose — which requires an account, so a
-/// guest is sent through the signup flow first.
+/// All five tabs are live (Discover = swipe deck, Catwalk = match-ranked runway).
+/// The center ＋ opens Post compose — which requires an account, so a guest is
+/// sent through the signup flow first.
 class AppShell extends ConsumerWidget {
   const AppShell({super.key, required this.navigationShell});
 
@@ -18,7 +18,7 @@ class AppShell extends ConsumerWidget {
     (icon: Icons.home_outlined, label: 'HOME'),
     (icon: Icons.explore_outlined, label: 'DISCOVER'),
     (icon: Icons.add, label: ''), // center +
-    (icon: Icons.bookmark_outline_rounded, label: 'CATWALK'),
+    (icon: Icons.auto_awesome_outlined, label: 'CATWALK'),
     (icon: Icons.person_outline_rounded, label: 'PROFILE'),
   ];
 

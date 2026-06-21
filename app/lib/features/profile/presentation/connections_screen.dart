@@ -3,17 +3,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/data/profile_repository.dart';
 import '../../../core/state/interactions.dart';
 import '../../../core/theme/tokens.dart';
-import '../../feed/data/mock_feed.dart';
 
 /// Followers / Following lists (route `/connections`). Opened by tapping the
-/// stats on the profile; `extra` = initial tab (0 followers, 1 following).
-/// Frontend mock: people derived from the feed authors; Follow toggles the
-/// shared interactions state.
+/// stats on a profile; `extra` carries the [userId] whose connections to show,
+/// the display [handle], and the initial tab (0 followers, 1 following).
+/// Backed by the real `follows` graph.
 class ConnectionsScreen extends ConsumerStatefulWidget {
-  const ConnectionsScreen({super.key, this.handle = '@mayachen', this.initialTab = 0});
+  const ConnectionsScreen({
+    super.key,
+    required this.userId,
+    this.handle = '',
+    this.initialTab = 0,
+  });
 
+  final String userId;
   final String handle;
   final int initialTab;
 
@@ -24,27 +30,14 @@ class ConnectionsScreen extends ConsumerStatefulWidget {
 class _ConnectionsScreenState extends ConsumerState<ConnectionsScreen> {
   late int _tab = widget.initialTab;
 
-  // Mock people from the feed authors (deduped by id).
-  late final List<({String id, String name, String avatar})> _followers =
-      _people();
-  late final List<({String id, String name, String avatar})> _following =
-      _people().reversed.toList();
-
-  List<({String id, String name, String avatar})> _people() {
-    final seen = <String>{};
-    final out = <({String id, String name, String avatar})>[];
-    for (final p in mockFeed) {
-      if (seen.add(p.authorId)) {
-        out.add((id: p.authorId, name: p.authorName, avatar: p.imageUrl));
-      }
-    }
-    return out;
-  }
-
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
-    final people = _tab == 0 ? _followers : _following;
+    final followers = ref.watch(followersProvider(widget.userId));
+    final following = ref.watch(followingProvider(widget.userId));
+    final current = _tab == 0 ? followers : following;
+
+    String count(AsyncValue<List<Person>> a) => '${a.asData?.value.length ?? 0}';
 
     return Scaffold(
       backgroundColor: AppColors.canvas,
@@ -73,19 +66,33 @@ class _ConnectionsScreenState extends ConsumerState<ConnectionsScreen> {
             // Tabs
             Row(
               children: [
-                _tabBtn('Followers · ${_followers.length}', 0),
-                _tabBtn('Following · ${_following.length}', 1),
+                _tabBtn('Followers · ${count(followers)}', 0),
+                _tabBtn('Following · ${count(following)}', 1),
               ],
             ),
             const Divider(height: 1, color: AppColors.line),
             Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-                itemCount: people.length,
-                itemBuilder: (context, i) => _PersonRow(
-                    id: people[i].id,
-                    name: people[i].name,
-                    avatar: people[i].avatar),
+              child: current.when(
+                loading: () => const Center(
+                    child: CircularProgressIndicator(strokeWidth: 2)),
+                error: (_, _) => Center(
+                  child: Text("Couldn't load this list.",
+                      style: t.bodyMedium?.copyWith(color: AppColors.ink2)),
+                ),
+                data: (people) {
+                  if (people.isEmpty) {
+                    return Center(
+                      child: Text(
+                          _tab == 0 ? 'No followers yet' : 'Not following anyone yet',
+                          style: t.bodyMedium?.copyWith(color: AppColors.ink2)),
+                    );
+                  }
+                  return ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                    itemCount: people.length,
+                    itemBuilder: (context, i) => _PersonRow(person: people[i]),
+                  );
+                },
               ),
             ),
           ],
@@ -120,18 +127,26 @@ class _ConnectionsScreenState extends ConsumerState<ConnectionsScreen> {
 }
 
 class _PersonRow extends ConsumerWidget {
-  const _PersonRow({required this.id, required this.name, required this.avatar});
-  final String id, name, avatar;
+  const _PersonRow({required this.person});
+  final Person person;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = Theme.of(context).textTheme;
-    final following = ref.watch(interactionsProvider).following.contains(id);
-    final handle = '@${name.toLowerCase().replaceAll(' ', '')}';
+    final following =
+        ref.watch(interactionsProvider).following.contains(person.id);
+    final handle = person.username.isNotEmpty
+        ? '@${person.username}'
+        : '@${person.name.toLowerCase().replaceAll(' ', '')}';
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () => context.push('/user',
-          extra: (id: id, name: name, avatar: avatar, pct: null)),
+          extra: (
+            id: person.id,
+            name: person.name,
+            avatar: person.avatar ?? '',
+            pct: null
+          )),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 9),
         child: Row(
@@ -143,10 +158,15 @@ class _PersonRow extends ConsumerWidget {
               decoration:
                   const BoxDecoration(color: AppColors.ring, shape: BoxShape.circle),
               child: ClipOval(
-                child: CachedNetworkImage(
-                    imageUrl: avatar,
-                    fit: BoxFit.cover,
-                    placeholder: (_, _) => const ColoredBox(color: AppColors.sand)),
+                child: person.avatar == null
+                    ? _Initials(name: person.name)
+                    : CachedNetworkImage(
+                        imageUrl: person.avatar!,
+                        fit: BoxFit.cover,
+                        placeholder: (_, _) =>
+                            const ColoredBox(color: AppColors.sand),
+                        errorWidget: (_, _, _) => _Initials(name: person.name),
+                      ),
               ),
             ),
             const SizedBox(width: 12),
@@ -154,7 +174,7 @@ class _PersonRow extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(name,
+                  Text(person.name,
                       style: t.bodyLarge?.copyWith(fontWeight: FontWeight.w700)),
                   Text(handle,
                       style: t.bodyMedium?.copyWith(color: AppColors.ink2)),
@@ -163,7 +183,7 @@ class _PersonRow extends ConsumerWidget {
             ),
             GestureDetector(
               onTap: () =>
-                  ref.read(interactionsProvider.notifier).toggleFollow(id),
+                  ref.read(interactionsProvider.notifier).toggleFollow(person.id),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 150),
                 padding:
@@ -182,6 +202,28 @@ class _PersonRow extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _Initials extends StatelessWidget {
+  const _Initials({required this.name});
+  final String name;
+  @override
+  Widget build(BuildContext context) {
+    final parts =
+        name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+    final initials = parts.isEmpty
+        ? '?'
+        : parts.take(2).map((p) => p[0].toUpperCase()).join();
+    return Container(
+      color: AppColors.sand,
+      alignment: Alignment.center,
+      child: Text(initials,
+          style: const TextStyle(
+              fontFamily: AppFonts.display,
+              fontSize: 15,
+              color: AppColors.ink2)),
     );
   }
 }

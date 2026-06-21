@@ -1,19 +1,24 @@
-import 'package:flutter/cupertino.dart';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/data/account_repository.dart';
+import '../../../core/data/profile_repository.dart';
 import '../../../core/state/interactions.dart';
 import '../../../core/state/session.dart';
 import '../../../core/theme/tokens.dart';
-import '../../feed/data/mock_feed.dart';
 
 /// Settings — a real, full-screen settings surface (route `/settings`). Grouped
 /// iOS-style sections per the locked design system. Includes the privacy
 /// essentials the MVP requires: **data export** and **account deletion**
 /// (CLAUDE.md privacy rules / SRS data lifecycle), plus blocked accounts,
-/// notification prefs, and sign out. Frontend-only: actions are mocked with the
-/// real copy/flows; wiring to Supabase comes later.
+/// blocked accounts, and sign out. Export + delete call real Supabase edge
+/// functions; change-password sends a real reset email.
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
@@ -22,13 +27,23 @@ class SettingsScreen extends ConsumerStatefulWidget {
 }
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
-  bool _notifLikes = true;
-  bool _notifFollows = true;
-  bool _notifPosts = false;
+  void _openDoc(String title, String body) {
+    Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => _DocScreen(title: title, body: body)));
+  }
 
   void _signOut() {
     ref.read(sessionProvider.notifier).signOut();
     context.go('/onboarding');
+  }
+
+  void _snack(String msg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: AppColors.ink,
+      content: Text(msg),
+    ));
   }
 
   void _requestExport() {
@@ -42,19 +57,34 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         icon: Icons.download_rounded,
         title: 'Export your data',
         body:
-            "We'll prepare a file with your profile, posts, saved looks, and activity, "
-            'and email it to maya@email.com within 48 hours.',
-        cta: 'Request export',
+            'We\'ll generate a file with your profile, posts, saved looks, and '
+            'activity that you can save or share.',
+        cta: 'Export',
         onConfirm: () {
           Navigator.of(ctx).pop();
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            behavior: SnackBarBehavior.floating,
-            backgroundColor: AppColors.ink,
-            content: Text("Export requested — we'll email you a copy."),
-          ));
+          _runExport();
         },
       ),
     );
+  }
+
+  Future<void> _runExport() async {
+    _snack('Preparing your data…');
+    try {
+      final json = await ref.read(accountRepositoryProvider).exportData();
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/viele-export.json');
+      await file.writeAsString(json);
+      if (!mounted) return;
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path, mimeType: 'application/json')],
+          subject: 'Your Viele data export',
+        ),
+      );
+    } catch (_) {
+      _snack("Couldn't prepare your export. Please try again.");
+    }
   }
 
   void _deleteAccount() {
@@ -75,10 +105,31 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         destructive: true,
         onConfirm: () {
           Navigator.of(ctx).pop();
-          _signOut();
+          _runDelete();
         },
       ),
     );
+  }
+
+  Future<void> _runDelete() async {
+    _snack('Deleting your account…');
+    try {
+      await ref.read(accountRepositoryProvider).deleteAccount();
+      if (!mounted) return;
+      // Clear the now-orphaned local session and return to onboarding.
+      _signOut();
+    } catch (_) {
+      _snack("Couldn't delete your account. Please try again.");
+    }
+  }
+
+  Future<void> _changePassword() async {
+    final email = Supabase.instance.client.auth.currentUser?.email;
+    if (email == null) return;
+    final err =
+        await ref.read(sessionProvider.notifier).sendPasswordReset(email);
+    if (!mounted) return;
+    _snack(err ?? 'Password reset link sent to $email.');
   }
 
   void _openBlocked() {
@@ -104,11 +155,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     _NavRow(
                         icon: Icons.alternate_email_rounded,
                         label: 'Email',
-                        value: 'maya@email.com'),
+                        showChevron: false,
+                        value: Supabase.instance.client.auth.currentUser?.email ??
+                            '—'),
                     _NavRow(
                         icon: Icons.lock_outline_rounded,
                         label: 'Change password',
-                        onTap: () {}),
+                        onTap: _changePassword),
                   ]),
                   _Group(title: 'Privacy & data', children: [
                     _NavRow(
@@ -122,34 +175,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     _NavRow(
                         icon: Icons.privacy_tip_outlined,
                         label: 'Privacy policy',
-                        onTap: () {}),
-                  ]),
-                  _Group(title: 'Notifications', children: [
-                    _ToggleRow(
-                        icon: Icons.favorite_border_rounded,
-                        label: 'Likes on your posts',
-                        value: _notifLikes,
-                        onChanged: (v) => setState(() => _notifLikes = v)),
-                    _ToggleRow(
-                        icon: Icons.person_add_alt_1_outlined,
-                        label: 'New followers',
-                        value: _notifFollows,
-                        onChanged: (v) => setState(() => _notifFollows = v)),
-                    _ToggleRow(
-                        icon: Icons.auto_awesome_outlined,
-                        label: 'New matched looks',
-                        value: _notifPosts,
-                        onChanged: (v) => setState(() => _notifPosts = v)),
+                        onTap: () => _openDoc('Privacy', _privacyText)),
                   ]),
                   _Group(title: 'About', children: [
                     _NavRow(
                         icon: Icons.shield_outlined,
                         label: 'Community guidelines',
-                        onTap: () {}),
+                        onTap: () => _openDoc('Community guidelines', _guidelinesText)),
                     _NavRow(
                         icon: Icons.help_outline_rounded,
                         label: 'Help & support',
-                        onTap: () {}),
+                        onTap: () => _openDoc('Help & support', _helpText)),
                   ]),
                   _Group(children: [
                     _NavRow(
@@ -307,42 +343,90 @@ class _NavRow extends StatelessWidget {
   }
 }
 
-class _ToggleRow extends StatelessWidget {
-  const _ToggleRow({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.onChanged,
-  });
+// ── Static document screen (privacy / guidelines / help) ──────────────────────
 
-  final IconData icon;
-  final String label;
-  final bool value;
-  final ValueChanged<bool> onChanged;
+class _DocScreen extends StatelessWidget {
+  const _DocScreen({required this.title, required this.body});
+  final String title;
+  final String body;
 
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 6, 12, 6),
-      child: Row(
-        children: [
-          Icon(icon, size: 20, color: AppColors.ink),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Text(label,
-                style: t.bodyLarge?.copyWith(fontWeight: FontWeight.w500)),
-          ),
-          CupertinoSwitch(
-            value: value,
-            activeTrackColor: AppColors.match,
-            onChanged: onChanged,
-          ),
-        ],
+    return Scaffold(
+      backgroundColor: AppColors.canvas,
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _TopBar(title: title, onBack: () => Navigator.of(context).pop()),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(22, 8, 22, 32),
+                child: Text(body,
+                    style: t.bodyLarge?.copyWith(height: 1.5, color: AppColors.ink2)),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
+
+const _privacyText = '''
+Viele is in early testing. Here's how we handle your data.
+
+What we collect
+• Account: your email (for sign-in) and password (stored securely by our auth provider).
+• Profile: the details you enter in onboarding and profile — name, username, bio, region, body silhouette, height, hair/skin/eye colour, and aesthetics. These are public and shown with your posts.
+• Weight: collected for matching only. It is private, owner-only, used as a coarse band, and never shown to anyone or included in any public data.
+• Content & activity: your posts, saved looks, likes, follows, and blocks.
+
+How we use it
+• To match you with looks and people who share your declared attributes.
+• To run core features (feed, profiles, saving, following).
+
+Your controls
+• Export: download a copy of all your data any time (Settings → Export my data).
+• Delete: permanently delete your account and all associated data, including posts, saved looks, follows, and media (Settings → Delete account). This cannot be undone.
+
+We do not sell your data. As this is a test build, details may change before public launch.
+''';
+
+const _guidelinesText = '''
+Viele is a place to share and discover real outfits. Keep it welcoming.
+
+Do
+• Post your own looks and styling.
+• Be respectful in how you describe yourself and others.
+
+Don't post
+• Nudity or sexual content.
+• Harassment, bullying, or hate.
+• Violence or threats.
+• Illegal or dangerous content.
+• Spam, scams, or content you don't have the rights to.
+
+Reporting & enforcement
+• Tap ••• on any post or profile to report it. Reports are anonymous.
+• Content that breaks these rules is removed; repeated or severe violations can lead to removal of the account.
+• You can block anyone — they won't see your profile or posts, and you won't see theirs.
+''';
+
+const _helpText = '''
+Thanks for helping test Viele.
+
+Found a bug or have feedback?
+• Use TestFlight's built-in feedback (take a screenshot in the app, then tap "Share Beta Feedback"), or reply to the invite you received.
+
+Common questions
+• Forgot your password? Sign out, then tap "Forgot password?" on the sign-in screen.
+• Want your data? Settings → Export my data.
+• Want to leave? Settings → Delete account removes everything permanently.
+
+This is an early build, so some things may still be rough. Your reports genuinely help.
+''';
 
 // ── Confirm sheet (export / delete) ───────────────────────────────────────────
 
@@ -430,18 +514,27 @@ class _BlockedAccountsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = Theme.of(context).textTheme;
-    // blocked is a set of author ids — resolve to display names for the list.
-    String nameFor(String id) {
-      for (final p in mockFeed) {
-        if (p.authorId == id) return p.authorName;
-      }
-      return id;
-    }
+    final blockedAsync = ref.watch(blockedPeopleProvider);
 
-    final blocked = [
-      for (final id in ref.watch(interactionsProvider).blocked)
-        (id: id, name: nameFor(id)),
-    ];
+    Widget emptyState() => Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.block_rounded, size: 38, color: AppColors.ink3),
+                const SizedBox(height: 12),
+                Text("You haven't blocked anyone",
+                    style: t.titleLarge?.copyWith(fontSize: 18)),
+                const SizedBox(height: 4),
+                Text("Blocked accounts can't see your profile or posts.",
+                    textAlign: TextAlign.center,
+                    style: t.bodyLarge?.copyWith(color: AppColors.ink2)),
+              ],
+            ),
+          ),
+        );
+
     return Scaffold(
       backgroundColor: AppColors.canvas,
       body: SafeArea(
@@ -450,89 +543,77 @@ class _BlockedAccountsScreen extends ConsumerWidget {
             _TopBar(
                 title: 'Blocked accounts',
                 onBack: () => Navigator.of(context).pop()),
-            if (blocked.isEmpty)
-              Expanded(
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(32),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.block_rounded,
-                            size: 38, color: AppColors.ink3),
-                        const SizedBox(height: 12),
-                        Text("You haven't blocked anyone",
-                            style: t.titleLarge?.copyWith(fontSize: 18)),
-                        const SizedBox(height: 4),
-                        Text('Blocked accounts can\'t see your profile or posts.',
-                            textAlign: TextAlign.center,
-                            style: t.bodyLarge?.copyWith(color: AppColors.ink2)),
-                      ],
-                    ),
-                  ),
-                ),
-              )
-            else
-              Expanded(
-                child: ListView.separated(
-                  padding: const EdgeInsets.fromLTRB(
-                      AppSpacing.s20, 12, AppSpacing.s20, 24),
-                  itemCount: blocked.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 10),
-                  itemBuilder: (context, i) {
-                    final name = blocked[i].name;
-                    return Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: AppColors.paper,
-                        borderRadius: BorderRadius.circular(AppRadii.chip),
-                        border: Border.all(color: AppColors.line),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 38,
-                            height: 38,
-                            alignment: Alignment.center,
-                            decoration: const BoxDecoration(
-                                color: AppColors.taupe, shape: BoxShape.circle),
-                            child: Text(
-                              name.substring(0, 1).toUpperCase(),
-                              style: const TextStyle(
-                                  fontFamily: AppFonts.text,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xFF5B4F3C)),
+            Expanded(
+              child: blockedAsync.when(
+                loading: () => const Center(
+                    child: CircularProgressIndicator(strokeWidth: 2)),
+                error: (_, _) => emptyState(),
+                data: (people) {
+                  if (people.isEmpty) return emptyState();
+                  return ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.s20, 12, AppSpacing.s20, 24),
+                    itemCount: people.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 10),
+                    itemBuilder: (context, i) {
+                      final name = people[i].name;
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: AppColors.paper,
+                          borderRadius: BorderRadius.circular(AppRadii.chip),
+                          border: Border.all(color: AppColors.line),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 38,
+                              height: 38,
+                              alignment: Alignment.center,
+                              decoration: const BoxDecoration(
+                                  color: AppColors.taupe, shape: BoxShape.circle),
+                              child: Text(
+                                name.isEmpty
+                                    ? '?'
+                                    : name.substring(0, 1).toUpperCase(),
+                                style: const TextStyle(
+                                    fontFamily: AppFonts.text,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF5B4F3C)),
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(name,
-                                style: t.bodyLarge
-                                    ?.copyWith(fontWeight: FontWeight.w600)),
-                          ),
-                          GestureDetector(
-                            onTap: () => ref
-                                .read(interactionsProvider.notifier)
-                                .unblock(blocked[i].id),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 14, vertical: 8),
-                              decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(AppRadii.pill),
-                                  border: Border.all(color: AppColors.ink)),
-                              child: Text('Unblock',
-                                  style: t.bodyMedium?.copyWith(
-                                      fontWeight: FontWeight.w700,
-                                      color: AppColors.ink)),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(name,
+                                  style: t.bodyLarge
+                                      ?.copyWith(fontWeight: FontWeight.w600)),
                             ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
+                            GestureDetector(
+                              onTap: () => ref
+                                  .read(interactionsProvider.notifier)
+                                  .unblock(people[i].id),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 14, vertical: 8),
+                                decoration: BoxDecoration(
+                                    borderRadius:
+                                        BorderRadius.circular(AppRadii.pill),
+                                    border: Border.all(color: AppColors.ink)),
+                                child: Text('Unblock',
+                                    style: t.bodyMedium?.copyWith(
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.ink)),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  );
+                },
               ),
+            ),
           ],
         ),
       ),

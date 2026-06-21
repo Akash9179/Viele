@@ -124,6 +124,21 @@ class ProfileNotifier extends Notifier<Profile> {
     }
   }
 
+  /// Persists a new avatar URL (after upload). Optimistic with revert on error.
+  Future<String?> updateAvatar(String url) async {
+    final prev = state;
+    state = state.copyWith(avatarUrl: url);
+    final uid = _c.auth.currentUser?.id;
+    if (uid == null) return null;
+    try {
+      await _c.from('profiles').update({'avatar_url': url}).eq('id', uid);
+      return null;
+    } catch (_) {
+      state = prev;
+      return "Couldn't update your photo.";
+    }
+  }
+
   /// Persists edits to the `profiles` row. Returns null on success or a
   /// user-facing error (e.g. username taken).
   Future<String?> save(Profile p) async {

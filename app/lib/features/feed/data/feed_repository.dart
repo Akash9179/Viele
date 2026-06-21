@@ -79,6 +79,46 @@ FeedPost feedPostFromPostRow(dynamic row, SupabaseClient c) {
   );
 }
 
+/// A shoppable item tagged on a post.
+typedef ShopItem = ({String name, String brand});
+
+/// Full detail for a single post not carried in the lean feed payload —
+/// caption, all tagged aesthetics, and shoppable items. Read directly from the
+/// `posts` row (RLS already gates to public+active posts the caller can see).
+typedef PostDetail = ({
+  String caption,
+  List<String> aesthetics,
+  List<ShopItem> items,
+});
+
+final postDetailProvider =
+    FutureProvider.autoDispose.family<PostDetail, String>((ref, postId) async {
+  final c = Supabase.instance.client;
+  final r = await c
+      .from('posts')
+      .select('caption, aesthetics, items')
+      .eq('id', postId)
+      .maybeSingle();
+  if (r == null) {
+    return (caption: '', aesthetics: const <String>[], items: const <ShopItem>[]);
+  }
+  final items = ((r['items'] as List?) ?? const [])
+      .map<ShopItem>((e) {
+        final m = (e as Map).cast<String, dynamic>();
+        return (
+          name: (m['name'] ?? '') as String,
+          brand: (m['brand'] ?? '') as String,
+        );
+      })
+      .where((it) => it.name.isNotEmpty)
+      .toList();
+  return (
+    caption: (r['caption'] ?? '') as String,
+    aesthetics: (r['aesthetics'] as List?)?.cast<String>() ?? const <String>[],
+    items: items,
+  );
+});
+
 final feedRepositoryProvider = Provider<FeedRepository>((_) => FeedRepository());
 
 /// The feed list. Auto-disposes; invalidate to refresh (pull-to-refresh / after
