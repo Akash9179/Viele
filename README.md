@@ -1,6 +1,6 @@
 # Viele
 
-Personalized fashion-discovery mobile app — matches users to outfits, creators, and
+A Personalized fashion-discovery mobile app — matches users to outfits, creators, and
 clothing based on their body type, complexion, and aesthetic. Core promise:
 **"outfits on people like you."**
 
