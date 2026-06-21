@@ -18,7 +18,7 @@ class AppShell extends ConsumerWidget {
     (icon: Icons.home_outlined, label: 'HOME'),
     (icon: Icons.explore_outlined, label: 'DISCOVER'),
     (icon: Icons.add, label: ''), // center +
-    (icon: Icons.bookmark_outline_rounded, label: 'CATWALK'),
+    (icon: Icons.auto_awesome_outlined, label: 'CATWALK'),
     (icon: Icons.person_outline_rounded, label: 'PROFILE'),
   ];
 
