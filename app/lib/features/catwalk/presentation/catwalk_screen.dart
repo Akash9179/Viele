@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,9 +12,13 @@ import '../../../core/theme/tokens.dart';
 import '../../feed/data/feed_post.dart';
 import '../../feed/data/feed_repository.dart';
 
-/// Catwalk — an immersive, full-width "runway" of looks ranked by how closely
-/// the wearer matches you (same `feed()` ranking as the masonry Feed, presented
-/// one big look at a time). Real data; tap a look to open its detail.
+/// Catwalk — the planned home for **rising creators**: profiles that are growing
+/// fast / performing exceptionally, surfaced and promoted here. Not built yet.
+///
+/// The current implementation below is a placeholder runway of match-ranked
+/// looks; it is intentionally sealed behind a frosted "coming soon" overlay
+/// ([_ComingSoonOverlay]) so it is not testable in this TestFlight build. The
+/// real growth/leaderboard feature replaces this content later.
 class CatwalkScreen extends ConsumerWidget {
   const CatwalkScreen({super.key});
 
@@ -23,10 +29,15 @@ class CatwalkScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: AppColors.canvas,
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      body: Stack(
+        children: [
+          // Work in progress — kept rendering for the teaser, but fully
+          // non-interactive (AbsorbPointer) and hidden behind the glass.
+          AbsorbPointer(
+            child: SafeArea(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 4),
               child: Column(
@@ -73,6 +84,68 @@ class CatwalkScreen extends ConsumerWidget {
               ),
             ),
           ],
+        ),
+              ),
+            ),
+          const Positioned.fill(child: _ComingSoonOverlay()),
+        ],
+      ),
+    );
+  }
+}
+
+/// Frosted-glass "coming soon" seal over the work-in-progress Catwalk. Blurs the
+/// content behind it and (with the AbsorbPointer wrapper) makes the whole surface
+/// non-interactive — so it can't be tested in this TestFlight build.
+class _ComingSoonOverlay extends StatelessWidget {
+  const _ComingSoonOverlay();
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Theme.of(context).textTheme;
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+        child: Container(
+          color: AppColors.canvas.withValues(alpha: 0.62),
+          alignment: Alignment.center,
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AppColors.paper,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.line),
+                ),
+                child: const Icon(Icons.trending_up_rounded,
+                    size: 28, color: AppColors.ink),
+              ),
+              const SizedBox(height: 18),
+              Text('Catwalk', style: t.headlineMedium?.copyWith(fontSize: 26)),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                decoration: BoxDecoration(
+                    color: AppColors.ink,
+                    borderRadius: BorderRadius.circular(AppRadii.pill)),
+                child: Text('Coming soon',
+                    style: t.bodyMedium?.copyWith(
+                        color: AppColors.onInk, fontWeight: FontWeight.w700)),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                'A spotlight on rising creators — the people growing fastest on '
+                'Viele. We’re still building it.',
+                textAlign: TextAlign.center,
+                style: t.bodyLarge?.copyWith(color: AppColors.ink2, height: 1.45),
+              ),
+            ],
+          ),
         ),
       ),
     );
