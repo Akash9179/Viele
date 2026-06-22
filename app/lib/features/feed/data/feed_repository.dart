@@ -160,13 +160,19 @@ class PagedFeedNotifier extends AsyncNotifier<PagedFeed> {
     final cur = state.asData?.value;
     if (cur == null || !cur.hasMore || cur.loading) return;
     state = AsyncData(cur.copyWith(loading: true));
-    final next = await ref
-        .read(feedRepositoryProvider)
-        .fetch(limit: _feedPageSize, offset: cur.posts.length);
-    state = AsyncData(cur.copyWith(
-        posts: [...cur.posts, ...next],
-        hasMore: next.length == _feedPageSize,
-        loading: false));
+    try {
+      final next = await ref
+          .read(feedRepositoryProvider)
+          .fetch(limit: _feedPageSize, offset: cur.posts.length);
+      state = AsyncData(cur.copyWith(
+          posts: [...cur.posts, ...next],
+          hasMore: next.length == _feedPageSize,
+          loading: false));
+    } catch (_) {
+      // Reset loading so the spinner clears and the guard allows future retries.
+      // Keep existing posts and hasMore intact so the user can scroll/retry.
+      state = AsyncData(cur.copyWith(loading: false));
+    }
   }
 
   Future<void> refresh() async {

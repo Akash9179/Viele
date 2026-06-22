@@ -120,6 +120,7 @@ class _PostComposeScreenState extends ConsumerState<PostComposeScreen> {
           );
       if (!mounted) return;
       ref.invalidate(feedProvider); // show the new post in the feed
+      ref.invalidate(pagedFeedProvider); // also refresh the paged feed (Home masonry)
       _toast('Posted! ✨');
       context.go('/home');
     } catch (_) {
