@@ -1,20 +1,21 @@
+import 'dart:async';
+
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/data/profile_repository.dart';
+import '../../../core/data/search_repository.dart';
 import '../../../core/state/interactions.dart';
 import '../../../core/theme/tokens.dart';
 import '../../feed/data/feed_post.dart';
-import '../../feed/data/feed_repository.dart';
 import '../../onboarding/data/onboarding_data.dart';
 
-/// Search (route `/search`). Find people, aesthetics, and looks. Real data:
-/// people from `peopleProvider` (the `profiles` directory), looks from the
-/// personalized `feedProvider` (the `feed()` RPC), aesthetics from the fixed
-/// onboarding taxonomy. Empty query shows discovery (browse aesthetics + people
-/// to follow); typing shows sectioned results. Blocked authors are excluded.
+/// Search (route `/search`). Find people, aesthetics, and looks.
+/// Empty query shows discovery (browse aesthetics + people to follow);
+/// typing debounces ~300ms then fires server-side `search_people` /
+/// `search_looks` RPCs (trigram full-text). Aesthetics chips are static.
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
 
@@ -28,30 +29,37 @@ const _kQuery = String.fromEnvironment('Q');
 class _SearchScreenState extends ConsumerState<SearchScreen> {
   final _ctl = TextEditingController(text: _kQuery);
   String _q = _kQuery;
+  Timer? _debounce;
+
+  @override
+  void initState() {
+    super.initState();
+    // If debug query is pre-set, fire it immediately.
+    if (_kQuery.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(searchQueryProvider.notifier).set(_kQuery);
+      });
+    }
+  }
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _ctl.dispose();
     super.dispose();
   }
 
-  void _setQuery(String v) => setState(() => _q = v);
+  void _onQueryChanged(String v) {
+    setState(() => _q = v);
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      ref.read(searchQueryProvider.notifier).set(v.trim().toLowerCase());
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    final blocked = ref.watch(interactionsProvider).blocked;
-    final peopleAsync = ref.watch(peopleProvider);
-    final looksAsync = ref.watch(feedProvider);
-    final q = _q.trim().toLowerCase();
-
-    // Resolve to whatever has loaded; sections render as their data arrives.
-    final people = (peopleAsync.asData?.value ?? const <Person>[])
-        .where((p) => !blocked.contains(p.id))
-        .toList();
-    final looks = (looksAsync.asData?.value ?? const <FeedPost>[])
-        .where((p) => !blocked.contains(p.authorId))
-        .toList();
-    final loading = peopleAsync.isLoading || looksAsync.isLoading;
+    final q = _q.trim();
 
     return Scaffold(
       backgroundColor: AppColors.canvas,
@@ -60,9 +68,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
           children: [
             _searchBar(),
             Expanded(
-              child: q.isEmpty
-                  ? _discovery(people, loading)
-                  : _results(q, people, looks),
+              child: q.isEmpty ? _discovery() : _results(),
             ),
           ],
         ),
@@ -101,7 +107,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     child: TextField(
                       controller: _ctl,
                       autofocus: true,
-                      onChanged: _setQuery,
+                      onChanged: _onQueryChanged,
                       style: t.bodyLarge,
                       textInputAction: TextInputAction.search,
                       decoration: InputDecoration(
@@ -117,7 +123,9 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                     GestureDetector(
                       onTap: () {
                         _ctl.clear();
-                        _setQuery('');
+                        _debounce?.cancel();
+                        setState(() => _q = '');
+                        ref.read(searchQueryProvider.notifier).set('');
                       },
                       child: const Icon(Icons.cancel_rounded,
                           size: 18, color: AppColors.ink3),
@@ -131,10 +139,17 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
-  // ── Empty-query discovery ────────────────────────────────────────────────────
+  // ── Empty-query discovery ───────────────────────────────────────────────────
 
-  Widget _discovery(List<Person> people, bool loading) {
+  Widget _discovery() {
     final t = Theme.of(context).textTheme;
+    final blocked = ref.watch(interactionsProvider).blocked;
+    final peopleAsync = ref.watch(peopleProvider);
+    final people = (peopleAsync.asData?.value ?? const <Person>[])
+        .where((p) => !blocked.contains(p.id))
+        .toList();
+    final loading = peopleAsync.isLoading;
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
       children: [
@@ -148,7 +163,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
               GestureDetector(
                 onTap: () {
                   _ctl.text = a.name;
-                  _setQuery(a.name);
+                  _onQueryChanged(a.name);
                 },
                 child: Container(
                   padding:
@@ -187,26 +202,61 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
     );
   }
 
-  // ── Results ───────────────────────────────────────────────────────────────
+  // ── Results (server search) ────────────────────────────────────────────────
 
-  Widget _results(String q, List<Person> people, List<FeedPost> looks) {
+  Widget _results() {
     final t = Theme.of(context).textTheme;
-    final matchedPeople = people
-        .where((p) =>
-            p.name.toLowerCase().contains(q) ||
-            p.username.toLowerCase().contains(q))
-        .toList();
+    final blocked = ref.watch(interactionsProvider).blocked;
+    final peopleAsync = ref.watch(searchPeopleProvider);
+    final looksAsync = ref.watch(searchLooksProvider);
+
+    // Match aesthetics client-side (static taxonomy — no RPC needed).
+    final q = _q.trim().toLowerCase();
     final matchedAesthetics =
         aesthetics.where((a) => a.name.toLowerCase().contains(q)).toList();
-    final matchedLooks = looks
-        .where((p) =>
-            p.aesthetic.toLowerCase().contains(q) ||
-            p.authorName.toLowerCase().contains(q))
+
+    final matchedPeople = (peopleAsync.asData?.value ?? const <Person>[])
+        .where((p) => !blocked.contains(p.id))
+        .toList();
+    final matchedLooks = (looksAsync.asData?.value ?? const <FeedPost>[])
+        .where((p) => !blocked.contains(p.authorId))
         .toList();
 
-    if (matchedPeople.isEmpty &&
+    final isLoading = peopleAsync.isLoading || looksAsync.isLoading;
+    final hasError = peopleAsync.hasError || looksAsync.hasError;
+    final isEmpty = matchedPeople.isEmpty &&
         matchedAesthetics.isEmpty &&
-        matchedLooks.isEmpty) {
+        matchedLooks.isEmpty;
+
+    if (isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(color: AppColors.ink, strokeWidth: 2.5),
+      );
+    }
+
+    if (hasError) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.wifi_off_rounded,
+                  size: 38, color: AppColors.ink3),
+              const SizedBox(height: 12),
+              Text('Search unavailable',
+                  style: t.titleLarge?.copyWith(fontSize: 18)),
+              const SizedBox(height: 4),
+              Text('Check your connection and try again.',
+                  textAlign: TextAlign.center,
+                  style: t.bodyLarge?.copyWith(color: AppColors.ink2)),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (isEmpty) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(32),
@@ -243,7 +293,7 @@ class _SearchScreenState extends ConsumerState<SearchScreen> {
                 GestureDetector(
                   onTap: () {
                     _ctl.text = a.name;
-                    _setQuery(a.name);
+                    _onQueryChanged(a.name);
                   },
                   child: Container(
                     padding: const EdgeInsets.symmetric(
@@ -312,7 +362,8 @@ class _PersonRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = Theme.of(context).textTheme;
-    final following = ref.watch(interactionsProvider).following.contains(person.id);
+    final following =
+        ref.watch(interactionsProvider).following.contains(person.id);
     final handle = person.username.isNotEmpty
         ? '@${person.username}'
         : '@${person.name.toLowerCase().replaceAll(' ', '')}';
