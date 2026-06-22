@@ -13,19 +13,48 @@ import 'widgets/match_card.dart';
 /// The Feed / Home wedge. Layout per Eugene's mockup + `docs/design.md`:
 /// header → recommended-people row → match-ranked masonry.
 /// Blocked authors are filtered out (FR-SG.8).
-class FeedScreen extends ConsumerWidget {
+/// Uses [pagedFeedProvider] for infinite-scroll pagination.
+class FeedScreen extends ConsumerStatefulWidget {
   const FeedScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<FeedScreen> createState() => _FeedScreenState();
+}
+
+class _FeedScreenState extends ConsumerState<FeedScreen> {
+  final _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    final pos = _scrollController.position;
+    if (pos.pixels >= pos.maxScrollExtent - 600) {
+      ref.read(pagedFeedProvider.notifier).loadMore();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final blocked = ref.watch(interactionsProvider).blocked;
-    final feedAsync = ref.watch(feedProvider);
+    final feedAsync = ref.watch(pagedFeedProvider);
     return SafeArea(
       bottom: false,
       child: RefreshIndicator(
         color: AppColors.ink,
-        onRefresh: () => ref.refresh(feedProvider.future),
+        onRefresh: () => ref.read(pagedFeedProvider.notifier).refresh(),
         child: CustomScrollView(
+          controller: _scrollController,
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             const SliverToBoxAdapter(child: _AppHeader()),
@@ -39,12 +68,13 @@ class FeedScreen extends ConsumerWidget {
                   icon: Icons.cloud_off_rounded,
                   title: "Couldn't load your feed",
                   body: 'Check your connection and try again.',
-                  onRetry: () => ref.invalidate(feedProvider),
+                  onRetry: () => ref.invalidate(pagedFeedProvider),
                 )),
               ],
-              data: (all) {
-                final posts =
-                    all.where((p) => !blocked.contains(p.authorId)).toList();
+              data: (paged) {
+                final posts = paged.posts
+                    .where((p) => !blocked.contains(p.authorId))
+                    .toList();
                 if (posts.isEmpty) {
                   return const [
                     SliverToBoxAdapter(
@@ -68,6 +98,8 @@ class FeedScreen extends ConsumerWidget {
                       itemBuilder: (context, i) => MatchCard(post: posts[i]),
                     ),
                   ),
+                  if (paged.loading)
+                    const SliverToBoxAdapter(child: _BottomSpinner()),
                 ];
               },
             ),
@@ -76,6 +108,17 @@ class FeedScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+class _BottomSpinner extends StatelessWidget {
+  const _BottomSpinner();
+  @override
+  Widget build(BuildContext context) => const Padding(
+        padding: EdgeInsets.symmetric(vertical: 20),
+        child: Center(
+            child: CircularProgressIndicator(
+                color: AppColors.ink, strokeWidth: 2)),
+      );
 }
 
 class _FeedLoading extends StatelessWidget {
