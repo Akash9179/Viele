@@ -1,0 +1,11 @@
+@import "tailwindcss";
+
+:root{
+  --canvas:#FAF8F4; --surface:#FFFFFF; --ink:#1E1A14; --ink2:#766C5C; --ink3:#A89C88;
+  --line:#ECE4D6; --line2:#E2D8C6; --accent:#1F7D4A; --accent-soft:#E7F2EA;
+  --danger:#C0392B; --danger-soft:#FBE9E7; --warn:#B9772A; --sand:#F3EEE4;
+}
+html,body{background:var(--canvas);color:var(--ink);
+  font-family:-apple-system,'SF Pro Text',system-ui,sans-serif;
+  font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;}
+*{box-sizing:border-box}
