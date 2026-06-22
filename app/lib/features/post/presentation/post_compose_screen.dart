@@ -56,7 +56,11 @@ class _PostComposeScreenState extends ConsumerState<PostComposeScreen> {
 
   Future<void> _addPhotos() async {
     try {
-      final picked = await _picker.pickMultiImage();
+      final picked = await _picker.pickMultiImage(
+        imageQuality: 80,
+        maxWidth: 1440,
+        maxHeight: 1440,
+      );
       if (picked.isEmpty) return;
       setState(() {
         _media.addAll(picked.map((x) => x.path));
@@ -69,7 +73,12 @@ class _PostComposeScreenState extends ConsumerState<PostComposeScreen> {
 
   Future<void> _takePhoto() async {
     try {
-      final x = await _picker.pickImage(source: ImageSource.camera);
+      final x = await _picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 80,
+        maxWidth: 1440,
+        maxHeight: 1440,
+      );
       if (x == null) return;
       setState(() {
         _media.add(x.path);
@@ -111,6 +120,7 @@ class _PostComposeScreenState extends ConsumerState<PostComposeScreen> {
           );
       if (!mounted) return;
       ref.invalidate(feedProvider); // show the new post in the feed
+      ref.invalidate(pagedFeedProvider); // also refresh the paged feed (Home masonry)
       _toast('Posted! ✨');
       context.go('/home');
     } catch (_) {

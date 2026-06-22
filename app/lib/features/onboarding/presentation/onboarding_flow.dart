@@ -849,6 +849,11 @@ class _SignupFlowState extends ConsumerState<SignupFlow> {
           eyeColor: _eye,
         );
       }
+      // Migrate any guest interactions (likes/saves/follows) captured before
+      // signup. Errors are swallowed — migration failure must not block signup.
+      try {
+        await repo.migrateGuestInteractions();
+      } catch (_) {/* never block signup on migration failure */}
       if (mounted) _close();
     } on PostgrestException catch (e) {
       if (!mounted) return;

@@ -9,8 +9,9 @@ import 'feed_post.dart';
 class FeedRepository {
   SupabaseClient get _c => Supabase.instance.client;
 
-  Future<List<FeedPost>> fetch() async {
-    final rows = (await _c.rpc('feed')) as List;
+  Future<List<FeedPost>> fetch({int limit = 20, int offset = 0}) async {
+    final rows = (await _c.rpc('feed',
+        params: {'p_limit': limit, 'p_offset': offset})) as List;
     return rows.map((r) {
       final m = r as Map<String, dynamic>;
       final media = (m['media'] as List?) ?? const [];
@@ -125,3 +126,61 @@ final feedRepositoryProvider = Provider<FeedRepository>((_) => FeedRepository())
 /// posting).
 final feedProvider = FutureProvider.autoDispose<List<FeedPost>>(
     (ref) => ref.watch(feedRepositoryProvider).fetch());
+
+// ---------------------------------------------------------------------------
+// Paged feed — used by FeedScreen for infinite scroll
+// ---------------------------------------------------------------------------
+
+const _feedPageSize = 20;
+
+class PagedFeed {
+  const PagedFeed(
+      {this.posts = const [], this.hasMore = true, this.loading = false});
+  final List<FeedPost> posts;
+  final bool hasMore;
+  final bool loading;
+  PagedFeed copyWith(
+          {List<FeedPost>? posts, bool? hasMore, bool? loading}) =>
+      PagedFeed(
+          posts: posts ?? this.posts,
+          hasMore: hasMore ?? this.hasMore,
+          loading: loading ?? this.loading);
+}
+
+class PagedFeedNotifier extends AsyncNotifier<PagedFeed> {
+  @override
+  Future<PagedFeed> build() async {
+    final first = await ref
+        .watch(feedRepositoryProvider)
+        .fetch(limit: _feedPageSize, offset: 0);
+    return PagedFeed(posts: first, hasMore: first.length == _feedPageSize);
+  }
+
+  Future<void> loadMore() async {
+    final cur = state.asData?.value;
+    if (cur == null || !cur.hasMore || cur.loading) return;
+    state = AsyncData(cur.copyWith(loading: true));
+    try {
+      final next = await ref
+          .read(feedRepositoryProvider)
+          .fetch(limit: _feedPageSize, offset: cur.posts.length);
+      state = AsyncData(cur.copyWith(
+          posts: [...cur.posts, ...next],
+          hasMore: next.length == _feedPageSize,
+          loading: false));
+    } catch (_) {
+      // Reset loading so the spinner clears and the guard allows future retries.
+      // Keep existing posts and hasMore intact so the user can scroll/retry.
+      state = AsyncData(cur.copyWith(loading: false));
+    }
+  }
+
+  Future<void> refresh() async {
+    state = const AsyncLoading();
+    state = await AsyncValue.guard(() => build());
+  }
+}
+
+final pagedFeedProvider =
+    AsyncNotifierProvider<PagedFeedNotifier, PagedFeed>(
+        PagedFeedNotifier.new, isAutoDispose: true);

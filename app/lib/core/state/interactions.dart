@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../data/guest_store.dart';
+
 /// Interaction state (saves / likes / follows / blocks). Likes, follows and
 /// blocks persist to Supabase for signed-in users (loaded on launch; optimistic
 /// writes with revert-on-error). Guests get in-memory-only behaviour (the funnel
@@ -37,6 +39,7 @@ class InteractionsNotifier extends Notifier<Interactions> {
   SupabaseClient get _c => Supabase.instance.client;
   String? get _uid => _c.auth.currentUser?.id;
   String? _defaultCol; // cached id of the default "Saved" collection
+  final _guest = GuestStore();
 
   @override
   Interactions build() {
@@ -65,7 +68,19 @@ class InteractionsNotifier extends Notifier<Interactions> {
 
   Future<void> _load() async {
     final uid = _uid;
-    if (uid == null) return;
+    if (uid == null) {
+      try {
+        final g = await _guest.load();
+        state = state.copyWith(
+          liked: g.liked,
+          saved: g.saved,
+          following: g.following,
+        );
+      } catch (_) {
+        // leave in-memory state as-is on a load failure
+      }
+      return;
+    }
     try {
       final likes = await _c.from('likes').select('post_id').eq('user_id', uid);
       final follows =
@@ -98,7 +113,11 @@ class InteractionsNotifier extends Notifier<Interactions> {
     final had = state.saved.contains(postId);
     state = state.copyWith(saved: _toggle(state.saved, postId)); // optimistic
     final uid = _uid;
-    if (uid == null) return; // guest: in-memory only
+    if (uid == null) {
+      // guest: persist to device so saves survive relaunch
+      await _guest.setSaved(state.saved);
+      return;
+    }
     try {
       final cid = await _ensureDefaultCol(uid);
       if (had) {
@@ -120,7 +139,11 @@ class InteractionsNotifier extends Notifier<Interactions> {
     final had = state.liked.contains(postId);
     state = state.copyWith(liked: _toggle(state.liked, postId)); // optimistic
     final uid = _uid;
-    if (uid == null) return; // guest: in-memory only
+    if (uid == null) {
+      // guest: persist to device so likes survive relaunch
+      await _guest.setLiked(state.liked);
+      return;
+    }
     try {
       if (had) {
         await _c.from('likes').delete().match({'user_id': uid, 'post_id': postId});
@@ -136,7 +159,11 @@ class InteractionsNotifier extends Notifier<Interactions> {
     final had = state.following.contains(authorId);
     state = state.copyWith(following: _toggle(state.following, authorId));
     final uid = _uid;
-    if (uid == null) return;
+    if (uid == null) {
+      // guest: persist to device so follows survive relaunch
+      await _guest.setFollowing(state.following);
+      return;
+    }
     try {
       if (had) {
         await _c
