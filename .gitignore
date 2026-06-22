@@ -33,3 +33,4 @@ dist/
 .branches/
 .temp/
 supabase/.temp/
+.superpowers/
