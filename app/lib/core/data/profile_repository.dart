@@ -7,6 +7,7 @@ import '../../features/feed/data/feed_post.dart';
 import '../../features/feed/data/feed_repository.dart';
 import '../state/interactions.dart';
 import '../state/onboarding_draft.dart';
+import 'guest_store.dart';
 
 /// Reads/writes the signed-in user's profile against Supabase. Slice-2 scope:
 /// create the profile from the teaser draft + signup details. Weight goes to the
@@ -48,6 +49,68 @@ class ProfileRepository {
       'profile_id': uid,
       'weight_kg': draft.weightKg,
     });
+  }
+
+  /// Migrates guest interactions (liked posts, saved posts, followed users) that
+  /// were persisted on-device to the server for the newly-signed-in user.
+  /// Clears the guest store on success. Conflicts are silently ignored so that
+  /// any race (e.g. server already has a row) never throws.
+  ///
+  /// Must be called after [createFromDraft] succeeds and a session exists.
+  /// Wrap the call in try/catch — a migration failure must never block signup.
+  Future<void> migrateGuestInteractions() async {
+    final uid = _c.auth.currentUser?.id;
+    if (uid == null) return;
+    final store = GuestStore();
+    final g = await store.load();
+    if (g.liked.isEmpty && g.saved.isEmpty && g.following.isEmpty) return;
+
+    // Liked posts → `likes` table (ignore duplicates)
+    for (final postId in g.liked) {
+      try {
+        await _c
+            .from('likes')
+            .upsert({'user_id': uid, 'post_id': postId}, onConflict: 'user_id,post_id');
+      } catch (_) {/* ignore conflicts */}
+    }
+
+    // Saved posts → user's default "Saved" collection
+    if (g.saved.isNotEmpty) {
+      try {
+        // Get-or-create the default collection.
+        final existing = await _c
+            .from('collections')
+            .select('id')
+            .eq('owner_id', uid)
+            .eq('name', 'Saved')
+            .maybeSingle();
+        final cid = existing != null
+            ? existing['id'] as String
+            : (await _c
+                .from('collections')
+                .insert({'owner_id': uid, 'name': 'Saved'})
+                .select('id')
+                .single())['id'] as String;
+        for (final postId in g.saved) {
+          try {
+            await _c.from('collection_items').upsert(
+                {'collection_id': cid, 'post_id': postId},
+                onConflict: 'collection_id,post_id');
+          } catch (_) {/* ignore conflicts */}
+        }
+      } catch (_) {/* ignore collection errors */}
+    }
+
+    // Followed users → `follows` table (ignore duplicates)
+    for (final followeeId in g.following) {
+      try {
+        await _c.from('follows').upsert(
+            {'follower_id': uid, 'followee_id': followeeId},
+            onConflict: 'follower_id,followee_id');
+      } catch (_) {/* ignore conflicts */}
+    }
+
+    await store.clear();
   }
 
   /// Uploads [filePath] as the signed-in user's avatar (upserted to
