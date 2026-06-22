@@ -72,11 +72,14 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
   }
 
   void _seedDeckIfNeeded(List<FeedPost> firstPage) {
-    if (_deck.isNotEmpty || firstPage.isEmpty) return;
+    if (_deck.isNotEmpty) return;
+    if (firstPage.isEmpty) {
+      setState(() => _exhausted = true);
+      return;
+    }
     final blocked = ref.read(interactionsProvider).blocked;
     setState(() {
       _deck.addAll(firstPage.where((p) => !blocked.contains(p.authorId)));
-      if (firstPage.isEmpty) _exhausted = true;
     });
   }
 
