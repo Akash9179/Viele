@@ -3,20 +3,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/data/swipe_repository.dart';
 import '../../../core/matching/match_band.dart';
 import '../../../core/state/interactions.dart';
 import '../../../core/state/session.dart';
 import '../../../core/theme/tokens.dart';
 import '../../feed/data/feed_post.dart';
-import '../../feed/data/feed_repository.dart';
 
 /// Discover — a swipe deck of looks picked for you, one at a time. Drag right to
-/// like, left to pass; the bookmark keeps it (account-gated). Endless supply by
-/// looping the deck. A V2 surface (SRS §4.3, FR-DS.1/3/4) pulled forward and
-/// built to the locked design system (`docs/design.md`). Now reads real posts
-/// from the same personalized `feed()` RPC as Home (ranked by match%); swipes
-/// persist likes/saves via [interactionsProvider]. Real preference learning
-/// (the swipe signal feeding ranking) wires in later.
+/// like, left to pass; the bookmark keeps it (account-gated). When the loaded
+/// page is exhausted a new page is fetched (offset = consumed count). When a
+/// page returns empty the real "You're all caught up" state is shown. Swipes
+/// are recorded via [SwipeRepository] so the `discover_deck` RPC can exclude
+/// already-seen posts and weight affinity over time. RIGHT swipe also fires
+/// [interactionsProvider.toggleLike]. Guests fall back to the plain `feed` RPC
+/// with no swipe history.
 class DiscoverScreen extends ConsumerStatefulWidget {
   const DiscoverScreen({super.key});
 
@@ -35,19 +36,79 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
   Offset _from = Offset.zero;
   Offset _to = Offset.zero;
   bool _flinging = false; // true = card flies off (commit), false = spring back
-  int _index = 0;
+
+  /// The accumulated deck (pages appended as the user swipes through).
+  final List<FeedPost> _deck = [];
+
+  /// How many cards the user has consumed (≤ _deck.length).
+  int _consumed = 0;
+
+  /// True while a next-page fetch is in flight.
+  bool _fetching = false;
+
+  /// True once a page came back empty — no more content to show.
+  bool _exhausted = false;
+
   double _w = 400;
 
-  /// The live deck: the loaded feed minus any blocked authors (FR-SG.8). Empty
-  /// until the feed resolves; the deck UI (and the gesture handlers that read
-  /// these getters) only runs once [build] has confirmed a non-empty deck.
-  List<FeedPost> get _deck {
-    final all = ref.read(feedProvider).asData?.value ?? const <FeedPost>[];
-    final blocked = ref.read(interactionsProvider).blocked;
-    return all.where((p) => !blocked.contains(p.authorId)).toList();
+  // -------------------------------------------------------------------------
+  // Helpers
+  // -------------------------------------------------------------------------
+
+  FeedPost? get _current =>
+      (_consumed < _deck.length) ? _deck[_consumed] : null;
+
+  FeedPost? get _next =>
+      (_consumed + 1 < _deck.length) ? _deck[_consumed + 1] : null;
+
+  // -------------------------------------------------------------------------
+  // Initial load — populate _deck from the first discoverDeckProvider result.
+  // -------------------------------------------------------------------------
+
+  @override
+  void initState() {
+    super.initState();
+    // Populate deck as soon as the first provider result lands (see build).
   }
 
-  FeedPost get _current => _deck[_index % _deck.length];
+  void _seedDeckIfNeeded(List<FeedPost> firstPage) {
+    if (_deck.isNotEmpty || firstPage.isEmpty) return;
+    final blocked = ref.read(interactionsProvider).blocked;
+    setState(() {
+      _deck.addAll(firstPage.where((p) => !blocked.contains(p.authorId)));
+      if (firstPage.isEmpty) _exhausted = true;
+    });
+  }
+
+  // -------------------------------------------------------------------------
+  // Paging
+  // -------------------------------------------------------------------------
+
+  Future<void> _fetchNextPage() async {
+    if (_fetching || _exhausted) return;
+    setState(() => _fetching = true);
+    try {
+      final blocked = ref.read(interactionsProvider).blocked;
+      final repo = ref.read(swipeRepositoryProvider);
+      final page = await repo.deck(limit: 20, offset: _consumed);
+      final filtered = page.where((p) => !blocked.contains(p.authorId)).toList();
+      setState(() {
+        if (filtered.isEmpty) {
+          _exhausted = true;
+        } else {
+          _deck.addAll(filtered);
+        }
+      });
+    } catch (_) {
+      // swallow — UI stays on current card; user can keep swiping
+    } finally {
+      if (mounted) setState(() => _fetching = false);
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Animation
+  // -------------------------------------------------------------------------
 
   void _tick() {
     setState(() {
@@ -58,13 +119,24 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
   void _onAnimDone(AnimationStatus status) {
     if (status != AnimationStatus.completed || !_flinging) return;
     final liked = _to.dx > 0;
-    if (liked) {
-      ref.read(interactionsProvider.notifier).toggleLike(_current.id);
+    final post = _current;
+    if (post != null) {
+      // Record swipe signal (fire-and-forget).
+      ref.read(swipeRepositoryProvider).recordSwipe(post.id, right: liked);
+      // RIGHT swipe also likes the post.
+      if (liked) {
+        ref.read(interactionsProvider.notifier).toggleLike(post.id);
+      }
     }
     setState(() {
-      _index++;
+      _consumed++;
       _drag = Offset.zero;
     });
+    // Prefetch next page when within 2 cards of the end.
+    final remaining = _deck.length - _consumed;
+    if (remaining <= 2 && !_exhausted) {
+      _fetchNextPage();
+    }
   }
 
   void _animateTo(Offset target, {required bool fling}) {
@@ -99,6 +171,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
 
   void _save() {
     final post = _current;
+    if (post == null) return;
     requireAccount(context, ref,
         () => ref.read(interactionsProvider.notifier).toggleSave(post.id));
   }
@@ -109,12 +182,18 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
     super.dispose();
   }
 
+  // -------------------------------------------------------------------------
+  // Build
+  // -------------------------------------------------------------------------
+
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
     _w = MediaQuery.sizeOf(context).width;
-    final feedAsync = ref.watch(feedProvider);
-    final blocked = ref.watch(interactionsProvider).blocked;
+
+    // Watch the first-page provider to seed the local deck.
+    final deckAsync = ref.watch(discoverDeckProvider);
+    deckAsync.whenData(_seedDeckIfNeeded);
 
     return SafeArea(
       child: Column(
@@ -137,38 +216,51 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
             ),
           ),
           Expanded(
-            child: feedAsync.when(
-              loading: () => const _DiscoverLoading(),
-              error: (e, _) => _DiscoverMessage(
-                icon: Icons.cloud_off_rounded,
-                title: "Couldn't load Discover",
-                body: 'Check your connection and try again.',
-                onRetry: () => ref.invalidate(feedProvider),
-              ),
-              data: (all) {
-                final deck =
-                    all.where((p) => !blocked.contains(p.authorId)).toList();
-                if (deck.isEmpty) {
-                  return const _DiscoverMessage(
-                    icon: Icons.style_rounded,
-                    title: "You're all caught up",
-                    body:
-                        'No more looks to discover right now — check back soon.',
-                  );
-                }
-                return _buildDeck(context, deck);
-              },
-            ),
+            child: _buildBody(context, deckAsync),
           ),
         ],
       ),
     );
   }
 
-  /// The live swipe deck, built once the feed has resolved to a non-empty list.
-  Widget _buildDeck(BuildContext context, List<FeedPost> deck) {
-    final current = deck[_index % deck.length];
-    final next = deck[(_index + 1) % deck.length];
+  Widget _buildBody(BuildContext context, AsyncValue<List<FeedPost>> deckAsync) {
+    // First page is still loading and we have nothing seeded yet.
+    if (deckAsync.isLoading && _deck.isEmpty) {
+      return const _DiscoverLoading();
+    }
+
+    // First page errored and we have nothing.
+    if (deckAsync.hasError && _deck.isEmpty) {
+      return _DiscoverMessage(
+        icon: Icons.cloud_off_rounded,
+        title: "Couldn't load Discover",
+        body: 'Check your connection and try again.',
+        onRetry: () => ref.invalidate(discoverDeckProvider),
+      );
+    }
+
+    final current = _current;
+
+    // Deck truly exhausted — a page returned empty (or the seed was empty).
+    if (_exhausted && current == null) {
+      return const _DiscoverMessage(
+        icon: Icons.style_rounded,
+        title: "You're all caught up",
+        body: 'No more looks to discover right now — check back soon.',
+      );
+    }
+
+    // Still waiting for the next page to arrive.
+    if (current == null) {
+      return const _DiscoverLoading();
+    }
+
+    return _buildDeck(context, current);
+  }
+
+  /// The live swipe deck, built once the deck has at least one post.
+  Widget _buildDeck(BuildContext context, FeedPost current) {
+    final next = _next;
     final saved = ref.watch(interactionsProvider).saved.contains(current.id);
 
     final reach = _w * 0.26;
@@ -185,15 +277,16 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
             child: Stack(
               children: [
                 // Peek of the next card behind, slightly smaller.
-                Positioned.fill(
-                  child: Transform.translate(
-                    offset: const Offset(0, 16),
-                    child: Transform.scale(
-                      scale: 0.94,
-                      child: _DiscoverCard(post: next),
+                if (next != null)
+                  Positioned.fill(
+                    child: Transform.translate(
+                      offset: const Offset(0, 16),
+                      child: Transform.scale(
+                        scale: 0.94,
+                        child: _DiscoverCard(post: next),
+                      ),
                     ),
                   ),
-                ),
                 // The live, draggable top card.
                 Positioned.fill(
                   child: GestureDetector(
