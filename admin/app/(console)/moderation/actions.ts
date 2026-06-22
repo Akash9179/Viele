@@ -11,6 +11,6 @@ async function moderate(postId: string, action: 'remove' | 'dismiss' | 'restore'
   revalidatePath('/moderation')
 }
 
-export const removePost = (postId: string) => moderate(postId, 'remove')
-export const dismissPost = (postId: string) => moderate(postId, 'dismiss')
-export const restorePost = (postId: string) => moderate(postId, 'restore')
+export const removePost = async (postId: string) => moderate(postId, 'remove')
+export const dismissPost = async (postId: string) => moderate(postId, 'dismiss')
+export const restorePost = async (postId: string) => moderate(postId, 'restore')
